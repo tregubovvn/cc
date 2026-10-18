@@ -1014,19 +1014,31 @@ const App = (() => {
     return data.response;
   }
   function parseWallOwner(link) {
-    const m = (link||'').match(/vk\.com\/(?:id(\d+)|wall(\d+)|club(\d+)|group\/([\w.]+)|([\w.]+))/);
+    // Поддержка vk.com и vk.ru, а также форматов id…, wall…, club…, public…, group/имя, домен
+    const m = (link||'').match(/vk\.(?:com|ru)\/(?:id(\d+)|wall(-?\d+)|club(\d+)|public(\d+)|group\/([\w.]+)|([\w.]+))/);
     if (!m) return null;
     if (m[1]) return {type:'user', id:+m[1]};
     if (m[2]) return {type:'wall', id:+m[2]};
     if (m[3]) return {type:'group', id:+m[3]};
-    const sn = m[4]||m[5];
+    if (m[4]) return {type:'group', id:+m[4]};
+    const sn = m[5]||m[6];
     if (!sn || ['feed','search','videos','photos','music','app','im','news','events','groups','public','catalog'].includes(sn)) return null;
     return {type:'screen', name:sn};
   }
   function normalizeDomain(v) {
-    // Принимает «inpitsstu», «-12345678», «vk.com/inpitsstu», полную URL — как в рабочем парсере
+    // Принимает «inpitsstu», «-12345678», «vk.com/inpitsstu», «vk.ru/club…», полную URL — как в рабочем парсере
     let s = (v||'').trim().replace(/^@+/,'');
-    s = s.replace(/^https?:\/\/(www\.)?(m\.)?vk\.com\/?/i,'').replace(/\/+$/,'');
+    // Удаляем схему и хост (vk.com / vk.ru, с www/m), даже без https://
+    // Варианты: с протоколом, без протокола (vk.com/club123), только путь (/inpitsstu)
+    s = s.replace(/^(https?:)?\/\/(?:(?:www|m)\.)?vk\.(com|ru)\//i,'');
+    s = s.replace(/^(?:(?:www|m)\.)?vk\.(com|ru)\//i,'');
+    s = s.replace(/^\/+/, '');
+    s = s.replace(/^\/+/,'').replace(/\/+$/,'');
+    // Если вместо домена вставили ссылку с числовым ID (club123 / id123 / wall123) — приводим к формату owner_id: -123 / 123
+    let m = s.match(/^club(\d+)$/i); if (m) return '-'+m[1];
+    m = s.match(/^id(\d+)$/i);     if (m) return m[1];
+    m = s.match(/^wall(-?\d+)_\d+$/i); if (m) return m[1];
+    m = s.match(/^public(\d+)$/i); if (m) return '-'+m[1];
     return s;
   }
   async function resolveOwnerId() {
@@ -1039,7 +1051,8 @@ const App = (() => {
     // Затем ссылка на стену: извлекаем домен/имя из URL и используем wall.get с domain — прямая аналогия с парсером.
     // Для числовых ссылок (id…, wall…, club…) оставляем прежний путь через parseWallOwner/owner_id.
     const link = localStorage.getItem('vk_wall')||'';
-    if (/^https?:\/\//i.test(link.trim())) {
+    // Ссылка на стену может быть с http(s)://, без схемы (vk.com/club123) и на домене vk.ru — все варианты поддерживаются
+    if (/(vk\.com|vk\.ru)\//i.test(link) || /^(https?:)?\/\//i.test(link.trim())) {
       const ln = normalizeDomain(link);
       if (ln && !/^(id\d+|wall\d+|club\d+|group\/|-?\d+$)/i.test(ln) && !/^(feed|search|videos|photos|music|app|im|news|events|groups|public|catalog)$/i.test(ln)) {
         return {id:null, domain:ln};
@@ -1078,14 +1091,34 @@ const App = (() => {
       // wall.get принимает И domain (прямая аналогия с рабочим парсером), И числовой owner_id.
       // Числовой ID нужен только для публикации — он разрешается отдельно в publishPost.
       const params = { count:50 };
-      if (domain) params.domain = domain; else params.owner_id = id;
+      if (domain) {
+        // Подстраховка: wall.get принимает в domain только корректное имя (буквы/цифры/_/.-);
+        // числовое значение или «путь» из ссылки отправляем как owner_id, а не как domain
+        if (/^-?\d+$/.test(domain)) { params.owner_id = +domain; }
+        else if (/^[A-Za-z0-9][A-Za-z0-9._-]{2,}$/.test(domain)) { params.domain = domain; }
+        else throw new Error('Некорректное значение «Сообщество или ID»: «'+domain+'». Укажите домен (inpitsstu), ID (-12345678) или ссылку вида vk.com/club123.');
+      } else { if (id == null) throw new Error('Не определён владелец стены. В ⚙ Настройках укажите «Сообщество или ID» (inpitsstu, -12345678 или vk.com/club123) либо ссылку на стену.'); params.owner_id = id; }
       if (!domain && id > 0) { params.filter = 'owner'; params.extended = 0; }
       let resp, usedService = !!service;
       try {
         resp = await vkApi('wall.get', params, service ? {token:service} : {});
       } catch(e) {
-        // Fallback: если сервисный ключ не подошёл, а есть пользовательский токен — пробуем им
-        if (service && userTok) {
+        // Fallback 1: если сервисный ключ не подошёл, а есть пользовательский токен — пробуем им
+        // Fallback 2: если в качестве domain попало имя вида clubNNN/idNNN/wallNNN_N — преобразуем в owner_id и повторяем запрос
+        let retried = false;
+        if (params.domain) {
+          const cm = String(params.domain).match(/^(?:club|public)(\d+)$/i) || String(params.domain).match(/^id(\d+)$/i) || String(params.domain).match(/^wall(-?\d+)(?:_\d+)?$/i);
+          if (cm) {
+            const num = /^(?:club|public)/i.test(params.domain) ? -Number(cm[1]) : Number(cm[1]);
+            delete params.domain; params.owner_id = num;
+            if (num > 0) params.filter = 'owner';
+            retried = true;
+          }
+        }
+        if (retried) {
+          resp = await vkApi('wall.get', params, service && !userTok ? {token:service} : (userTok ? {token:userTok} : {}));
+          usedService = !!(!userTok && service);
+        } else if (service && userTok) {
           resp = await vkApi('wall.get', params, {token:userTok});
           usedService = false;
         } else {
