@@ -59,6 +59,16 @@
         <label class="text-sm font-semibold">🔗 Ссылка на стену ВК</label>
         <input id="setVkWall" placeholder="https://vk.com/id1234567" class="w-full mt-1 border rounded-lg px-3 py-2 text-sm">
       </div>
+      <div>
+        <label class="text-sm font-semibold">🔑 VK: сервисный ключ доступа (опционально)</label>
+        <input id="setVkServiceToken" type="password" placeholder="сервисный ключ из настроек приложения VK" class="w-full mt-1 border rounded-lg px-3 py-2 text-sm">
+        <p class="text-xs text-slate-500 mt-1">Получить: <a class="text-blue-600 underline" href="https://dev.vk.com" target="_blank">dev.vk.com → настройки приложения → «Сервисный ключ доступа»</a>. Используется для загрузки чужих публичных стен и сообществ (wall.get). Публикация — только пользовательским токеном.</p>
+      </div>
+      <div>
+        <label class="text-sm font-semibold">🏷️ Сообщество или ID (для сервисного ключа)</label>
+        <input id="setVkDomain" placeholder="например, inpitsstu или -12345678" class="w-full mt-1 border rounded-lg px-3 py-2 text-sm">
+        <p class="text-xs text-slate-500 mt-1">Если указано — аналитика загружает стену этого сообщества по домену/ID. Если пусто — используется ссылка на стену выше.</p>
+      </div>
     </div>
     <div class="mt-3 flex gap-2">
       <button onclick="App.saveSettings()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm">Сохранить настройки</button>
@@ -217,7 +227,7 @@
         <div class="grid md:grid-cols-2 gap-4 mb-4">
           <div class="border rounded-xl p-4">
             <h3 class="font-semibold text-sm mb-2">Способ 1: Через VK API (надёжно, полные метрики)</h3>
-            <p class="text-xs text-slate-500 mb-2">Требуется токен VK API с правом «wall» и ссылка на стену в настройках (⚙).</p>
+            <p class="text-xs text-slate-500 mb-2">Работает с пользовательским токеном (wall + ссылка на стену) или с сервисным ключом доступа (dev.vk.com) для чтения публичных стен и сообществ — укажите «Сообщество или ID» в ⚙ Настройках.</p>
             <button onclick="App.loadWallViaAPI()" class="bg-[#0077ff] hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-semibold">🔄 Загрузить стену через VK API</button>
           </div>
           <div class="border rounded-xl p-4">
@@ -567,16 +577,22 @@ const App = (() => {
     $('setDsToken').value = localStorage.getItem('ds_token')||'';
     $('setVkToken').value = localStorage.getItem('vk_token')||'';
     $('setVkWall').value  = localStorage.getItem('vk_wall')||'';
+    $('setVkServiceToken').value = localStorage.getItem('vk_service_token')||'';
+    $('setVkDomain').value = localStorage.getItem('vk_domain')||'';
   }
   function saveSettings(){
     localStorage.setItem('ds_token', $('setDsToken').value.trim());
     localStorage.setItem('vk_token', $('setVkToken').value.trim());
     localStorage.setItem('vk_wall',  $('setVkWall').value.trim());
+    localStorage.setItem('vk_service_token', $('setVkServiceToken').value.trim());
+    localStorage.setItem('vk_domain', $('setVkDomain').value.trim());
     $('settingsSavedMsg').classList.remove('hidden');
     setTimeout(()=>$('settingsSavedMsg').classList.add('hidden'),2000);
   }
   const dsToken = ()=>localStorage.getItem('ds_token')||'';
   const vkToken = ()=>localStorage.getItem('vk_token')||'';
+  const vkServiceToken = ()=>localStorage.getItem('vk_service_token')||'';
+  const vkDomain = ()=>localStorage.getItem('vk_domain')||'';
 
   // ---------- DeepSeek API ----------
   async function callDeepSeek(system, user, {json=false}={}) {
@@ -987,9 +1003,11 @@ const App = (() => {
       document.head.appendChild(s);
     });
   }
-  async function vkApi(method, params) {
-    const token = vkToken();
-    if (!token) throw new Error('Не задан токен VK API. Получите его на vkhost.github.io (галочка «Стена») и укажите в ⚙ Настройках.');
+  async function vkApi(method, params, opts) {
+    opts = opts || {};
+    // opts.token — явный токен (например, сервисный ключ); иначе пользовательский
+    const token = (opts.token && opts.token.trim()) || vkToken();
+    if (!token) throw new Error('Не задан токен VK API. Пользовательский — на vkhost.github.io (галочка «Стена»), сервисный — на dev.vk.com. Укажите в ⚙ Настройках.');
     const qs = new URLSearchParams({ ...params, access_token: token, v: '5.199' });
     const data = await jsonp('https://api.vk.com/method/'+method+'?'+qs.toString());
     if (data.error) throw new Error('VK API ошибка '+data.error.error_code+': '+data.error.error_msg);
@@ -1006,13 +1024,21 @@ const App = (() => {
     return {type:'screen', name:sn};
   }
   async function resolveOwnerId() {
+    // Сначала пробуем поле «Сообщество или ID» (inpitsstu / -12345678) — как в парсере через сервисный ключ
+    const dom = vkDomain();
+    if (dom) {
+      if (/^-?\d+$/.test(dom)) return {id:+dom, domain:null};
+      return {id:null, domain:dom};
+    }
     const link = localStorage.getItem('vk_wall')||'';
     const owner = parseWallOwner(link);
-    if (!owner) throw new Error('В ⚙ Настройках укажите ссылку на стену (vk.com/id…, vk.com/wall…, vk.com/имя).');
+    if (!owner) throw new Error('В ⚙ Настройках укажите ссылку на стену (vk.com/id…, vk.com/wall…, vk.com/имя) либо сообщество/ID.');
     if (owner.type==='screen') {
-      try { const u = await vkApi('users.get',{ user_ids: owner.name }); if (u[0]?.id) return {id:u[0].id, domain:owner.name}; } catch(e){}
-      try { const g = await vkApi('groups.getById',{ group_id: owner.name }); if (g[0]?.id) return {id:-g[0].id, domain:owner.name}; } catch(e){}
-      throw new Error('Не удалось разрешить имя «'+owner.name+'». Используйте числовую ссылку вида vk.com/id123456.');
+      // Пробуем разрешить screen name доступным токеном (сервисный или пользовательский)
+      const tok = vkServiceToken() || undefined;
+      try { const u = await vkApi('users.get',{ user_ids: owner.name }, {token:tok}); if (u[0]?.id) return {id:u[0].id, domain:null}; } catch(e){}
+      try { const g = await vkApi('groups.getById',{ group_id: owner.name }, {token:tok}); if (g[0]?.id) return {id:-g[0].id, domain:null}; } catch(e){}
+      throw new Error('Не удалось разрешить имя «'+owner.name+'». Используйте числовую ссылку вида vk.com/id123456 или укажите домен в поле «Сообщество или ID».');
     }
     if (owner.type==='group') return {id:-owner.id, domain:null};
     return {id:owner.id, domain:null};
@@ -1021,22 +1047,38 @@ const App = (() => {
   async function loadWallViaAPI() {
     anErr('');
     try {
-      const {id} = await resolveOwnerId();
-      const resp = await vkApi('wall.get',{ owner_id:id, count:50, filter:'owner', extended:0 });
-      const items = (resp.items||[]).filter(it=>it.text&&it.text.trim());
-      state.wallPosts = items.map(it=>({
-        id: 'wall'+id+'_'+it.id, date: it.date ? new Date(it.date*1000).toISOString().slice(0,10) : '',
-        url: 'https://vk.com/wall'+id+'_'+it.id,
-        text: it.text, likes: it.likes?.count||0, comments: it.comments?.count||0,
-        reposts: it.reposts?.count||0, views: it.views?.count||0
-      }));
+      const service = vkServiceToken();
+      const userTok = vkToken();
+      // Приоритет: сервисный ключ для чтения публичных стен (wall.get с domain);
+      // если его нет — пользовательский токен. Публикация — всегда пользовательским.
+      const tokenOpt = service ? {token:service} : {};
+      if (!service && !userTok) throw new Error('Не задан ни сервисный ключ, ни токен VK API. Заполните ⚙ Настройки.');
+      const {id, domain} = await resolveOwnerId();
+      const params = { count:50 };
+      if (domain) params.domain = domain; else params.owner_id = id;
+      if (!domain && id > 0) { params.filter = 'owner'; params.extended = 0; }
+      const resp = await vkApi('wall.get', params, tokenOpt);
+      // Если wall.get вернул domain-ответ без owner_id — берём из первого поста
+      let ownerId = id;
+      const items0 = resp.items||[];
+      if (!ownerId && items0.length) ownerId = items0[0].owner_id;
+      const items = items0.filter(it=>it.text&&it.text.trim());
+      state.wallPosts = items.map(it=>{
+        const oid = it.owner_id ?? ownerId;
+        return {
+          id: 'wall'+oid+'_'+it.id, date: it.date ? new Date(it.date*1000).toISOString().slice(0,10) : '',
+          url: 'https://vk.com/wall'+oid+'_'+it.id,
+          text: it.text, likes: it.likes?.count||0, comments: it.comments?.count||0,
+          reposts: it.reposts?.count||0, views: it.views?.count||0
+        };
+      });
       state.wallPosts.forEach(w=>w.er = calcER(w.likes,w.comments,w.reposts,w.views));
       state.wallLoadedAt = new Date().toISOString();
-      if (!state.wallPosts.length) throw new Error('Стена доступна, но собственных постов с текстом не найдено.');
+      if (!state.wallPosts.length) throw new Error('Стена доступна, но постов с текстом не найдено (возможно, стена закрыта или сообщество не существует).');
       markDirty(); renderAnalytics();
-      toast('Загружено постов со стены: '+state.wallPosts.length);
+      toast('Загружено постов: '+state.wallPosts.length+(service?' (сервисный ключ)':''));
     } catch(e) {
-      anErr('❌ '+e.message + '\n\nРекомендации:\n• Проверьте токен VK API (право «wall», начинается с vk1.a…)\n• Проверьте ссылку на стену в ⚙ Настройках\n• Страница должна быть открытой\n• Альтернатива: Способ 2 — загрузка сохранённого HTML (Ctrl+S → «Веб-страница полностью»)');
+      anErr('❌ '+e.message + '\n\nРекомендации:\n• Сервисный ключ: dev.vk.com → настройки приложения → «Сервисный ключ доступа» (работает только для чтения публичных стен)\n• Пользовательский токен: vkhost.github.io → VK Standalone → галочка «Стена» (нужен для публикации)\n• Укажите сообщество (например, inpitsstu) или ID (-12345678) либо ссылку на стену в ⚙ Настройках\n• Страница/сообщество должны быть открытыми\n• Альтернатива: Способ 2 — загрузка сохранённого HTML (Ctrl+S → «Веб-страница полностью»)');
     }
   }
 
@@ -1205,7 +1247,19 @@ ${stats}`, {json:true});
     if (p.date !== todayStr()) return toast('Публиковать можно только посты на сегодня', false);
     if (!p.text.trim()) return toast('Пост не имеет текста', false);
     try {
-      const {id:ownerId} = await resolveOwnerId();
+      if (!vkToken()) throw new Error('Для публикации нужен пользовательский токен VK API (сервисный ключ не подходит). Получите его на vkhost.github.io → VK Standalone → галочка «Стена» и укажите в ⚙ Настройках.');
+      let ownerId;
+      if (vkDomain() && /^-\d+$/.test(vkDomain())) {
+        // Явно указан числовой ID сообщества (например, -12345678) — публикуем от имени группы
+        ownerId = +vkDomain();
+      } else if (vkDomain() && !/^-?\d+$/.test(vkDomain())) {
+        // Указан домен сообщества — разрешаем в числовой ID через groups.getById
+        const g = await vkApi('groups.getById', { group_id: vkDomain() });
+        if (!g[0]?.id) throw new Error('Сообщество «'+vkDomain()+'» не найдено.');
+        ownerId = -g[0].id;
+      } else {
+        ({id:ownerId} = await resolveOwnerId());
+      }
       const params = { owner_id: ownerId, message: p.text, from_group: ownerId<0?1:0, anonymous:0 };
       const pubTime = new Date(p.date+'T'+(p.time||'10:00')+':00');
       if (pubTime > new Date()) params.publish_date = Math.floor(pubTime.getTime()/1000);
