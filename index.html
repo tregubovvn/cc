@@ -1,0 +1,1360 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Личный бренд преподавателя ВУЗа — ВКонтакте</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>
+  if (window.pdfjsLib) {
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  }
+</script>
+<style>
+  body { font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; }
+  .fade-in { animation: fadeIn .25s ease; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(4px);} to { opacity:1; transform:none;} }
+  textarea { resize: vertical; }
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+</style>
+</head>
+<body class="bg-slate-100 text-slate-800 min-h-screen">
+
+<div id="app" class="max-w-6xl mx-auto p-4">
+  <!-- ===== Шапка ===== -->
+  <header class="bg-gradient-to-r from-blue-700 to-indigo-700 text-white rounded-xl p-5 mb-4 shadow">
+    <div class="flex flex-wrap items-center justify-between gap-3">
+      <div>
+        <h1 class="text-xl font-bold">🎓 Личный бренд преподавателя ВУЗа — ВКонтакте</h1>
+        <p id="profileLine" class="text-blue-200 text-sm mt-1">Профиль не создан</p>
+      </div>
+      <div class="flex flex-wrap gap-2 items-center">
+        <span id="dirtyBadge" class="hidden text-xs bg-red-500 text-white px-2 py-1 rounded-full animate-pulse">не сохранено</span>
+        <button onclick="App.showWelcome()" class="bg-white/20 hover:bg-white/30 px-3 py-2 rounded-lg text-sm">➕ Новый профиль</button>
+        <button onclick="App.openFile()" class="bg-white/20 hover:bg-white/30 px-3 py-2 rounded-lg text-sm">📂 Открыть файл</button>
+        <button id="btnSave" onclick="App.saveFile()" class="bg-emerald-500 hover:bg-emerald-600 px-3 py-2 rounded-lg text-sm font-semibold hidden">💾 Сохранить</button>
+        <button onclick="App.toggleSettings()" class="bg-white/20 hover:bg-white/30 px-3 py-2 rounded-lg text-sm" title="Настройки API">⚙</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- ===== Настройки ===== -->
+  <section id="settingsPanel" class="hidden bg-white rounded-xl shadow p-4 mb-4 fade-in">
+    <h2 class="font-bold mb-3">⚙ Настройки API (токены хранятся только в localStorage браузера и НЕ попадают в XML-файл)</h2>
+    <div class="grid md:grid-cols-2 gap-4">
+      <div>
+        <label class="text-sm font-semibold">🤖 DeepSeek API токен</label>
+        <input id="setDsToken" type="password" placeholder="sk-..." class="w-full mt-1 border rounded-lg px-3 py-2 text-sm">
+        <p class="text-xs text-slate-500 mt-1">Получить: <a class="text-blue-600 underline" href="https://platform.deepseek.com" target="_blank">platform.deepseek.com → API Keys</a></p>
+      </div>
+      <div>
+        <label class="text-sm font-semibold">🔵 VK API токен</label>
+        <input id="setVkToken" type="password" placeholder="vk1.a...." class="w-full mt-1 border rounded-lg px-3 py-2 text-sm">
+        <p class="text-xs text-slate-500 mt-1">Получить: <a class="text-blue-600 underline" href="https://vkhost.github.io" target="_blank">vkhost.github.io → VK Standalone → галочка «Стена»</a></p>
+      </div>
+      <div class="md:col-span-2">
+        <label class="text-sm font-semibold">🔗 Ссылка на стену ВК</label>
+        <input id="setVkWall" placeholder="https://vk.com/id1234567" class="w-full mt-1 border rounded-lg px-3 py-2 text-sm">
+      </div>
+      <div>
+        <label class="text-sm font-semibold">🔑 VK: сервисный ключ доступа (опционально)</label>
+        <input id="setVkServiceToken" type="password" placeholder="сервисный ключ из настроек приложения VK" class="w-full mt-1 border rounded-lg px-3 py-2 text-sm">
+        <p class="text-xs text-slate-500 mt-1">Получить: <a class="text-blue-600 underline" href="https://dev.vk.com" target="_blank">dev.vk.com → настройки приложения → «Сервисный ключ доступа»</a>. Используется для загрузки чужих публичных стен и сообществ (wall.get). Публикация — только пользовательским токеном.</p>
+      </div>
+      <div>
+        <label class="text-sm font-semibold">🏷️ Сообщество или ID (для сервисного ключа)</label>
+        <input id="setVkDomain" placeholder="например, inpitsstu или -12345678" class="w-full mt-1 border rounded-lg px-3 py-2 text-sm">
+        <p class="text-xs text-slate-500 mt-1">Принимаются: домен (<code>inpitsstu</code>), ID (<code>-12345678</code>) или полная ссылка (<code>https://vk.com/inpitsstu</code>). Если пусто — аналитика использует ссылку на стену выше (тоже работает с сервисным ключом для публичных страниц).</p>
+      </div>
+    </div>
+    <div class="mt-3 flex gap-2">
+      <button onclick="App.saveSettings()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm">Сохранить настройки</button>
+      <span id="settingsSavedMsg" class="text-emerald-600 text-sm self-center hidden">✔ Сохранено</span>
+    </div>
+  </section>
+
+  <!-- ===== Приветствие ===== -->
+  <section id="welcomePanel" class="bg-white rounded-xl shadow p-8 mb-4">
+    <h2 class="text-2xl font-bold mb-2">Добро пожаловать!</h2>
+    <p class="mb-4 text-slate-600">Локальное приложение для управления личным брендом преподавателя ВКонтакте. Все данные хранятся в XML-файле на вашем компьютере, сервер не требуется.</p>
+    <div class="grid md:grid-cols-2 gap-6">
+      <div class="border rounded-xl p-4">
+        <h3 class="font-bold mb-3">Создать новый профиль</h3>
+        <input id="newName" placeholder="ФИО" class="w-full border rounded-lg px-3 py-2 text-sm mb-2">
+        <input id="newPost" placeholder="Должность, вуз, кафедра" class="w-full border rounded-lg px-3 py-2 text-sm mb-3">
+        <button onclick="App.createProfile()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg text-sm font-semibold">🚀 Создать профиль</button>
+      </div>
+      <div class="border rounded-xl p-4">
+        <h3 class="font-bold mb-3">Открыть существующий файл</h3>
+        <p class="text-sm text-slate-500 mb-3">Выберите ранее сохранённый XML-файл профиля (.xml)</p>
+        <input type="file" id="openXmlInput" accept=".xml,text/xml" onchange="App.onOpenXml(this.files[0])" class="text-sm">
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== Основной интерфейс ===== -->
+  <main id="mainUI" class="hidden">
+    <nav class="flex gap-1 mb-4 bg-white rounded-xl shadow p-1 flex-wrap">
+      <button data-tab="planner" onclick="App.switchTab('planner')" class="tab-btn flex-1 min-w-[140px] px-4 py-2 rounded-lg text-sm font-semibold">📅 Планировщик</button>
+      <button data-tab="plan" onclick="App.switchTab('plan')" class="tab-btn flex-1 min-w-[140px] px-4 py-2 rounded-lg text-sm font-semibold">📝 Контент-план <span id="planCount" class="text-xs text-slate-400"></span></button>
+      <button data-tab="analytics" onclick="App.switchTab('analytics')" class="tab-btn flex-1 min-w-[140px] px-4 py-2 rounded-lg text-sm font-semibold">📊 Аналитика</button>
+    </nav>
+
+    <!-- ===== Модуль 1: Планировщик ===== -->
+    <section id="tab-planner" class="tab-panel">
+      <div class="bg-white rounded-xl shadow p-5">
+        <h2 class="font-bold text-lg mb-3">📅 Генератор контент-плана</h2>
+        <div class="grid md:grid-cols-4 gap-3 mb-4">
+          <div>
+            <label class="text-xs font-semibold text-slate-500">Тип плана</label>
+            <select id="planType" class="w-full mt-1 border rounded-lg px-2 py-2 text-sm">
+              <option>План куратора</option>
+              <option>План воспитательной работы</option>
+              <option>План кафедры</option>
+              <option>Свободный план</option>
+            </select>
+          </div>
+          <div>
+            <label class="text-xs font-semibold text-slate-500">Дата начала</label>
+            <input id="planStartDate" type="date" class="w-full mt-1 border rounded-lg px-2 py-2 text-sm">
+          </div>
+          <div>
+            <label class="text-xs font-semibold text-slate-500">Периодичность, дней</label>
+            <input id="planPeriod" type="number" min="1" value="3" class="w-full mt-1 border rounded-lg px-2 py-2 text-sm">
+          </div>
+          <div>
+            <label class="text-xs font-semibold text-slate-500">Максимум постов</label>
+            <input id="planMax" type="number" min="1" max="60" value="12" class="w-full mt-1 border rounded-lg px-2 py-2 text-sm">
+          </div>
+        </div>
+
+        <div class="flex gap-1 mb-4 bg-slate-100 rounded-lg p-1 flex-wrap">
+          <button data-src="document" onclick="App.switchSource('document')" class="src-btn px-3 py-2 rounded-md text-sm">📄 Из документа</button>
+          <button data-src="topics" onclick="App.switchSource('topics')" class="src-btn px-3 py-2 rounded-md text-sm">🎯 По темам</button>
+          <button data-src="analytics" onclick="App.switchSource('analytics')" class="src-btn px-3 py-2 rounded-md text-sm">📊 По аналитике</button>
+          <button data-src="prompt" onclick="App.switchSource('prompt')" class="src-btn px-3 py-2 rounded-md text-sm">⭐ По промпту</button>
+        </div>
+
+        <!-- Источник: документ -->
+        <div id="src-document" class="src-panel border rounded-xl p-4 mb-4">
+          <p class="text-sm text-slate-600 mb-2">Загрузите плановый документ (.docx, .pdf, .txt) — текст будет извлечён и передан DeepSeek для формирования контент-плана.</p>
+          <input type="file" id="docInput" accept=".docx,.pdf,.txt" onchange="App.onDocLoaded(this.files[0])" class="text-sm">
+          <textarea id="docText" rows="5" placeholder="Извлечённый текст документа…" class="w-full mt-3 border rounded-lg px-3 py-2 text-sm"></textarea>
+          <button onclick="App.generateFromDocument()" class="mt-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-semibold">🪄 Сгенерировать план из документа</button>
+        </div>
+
+        <!-- Источник: темы -->
+        <div id="src-topics" class="src-panel hidden border rounded-xl p-4 mb-4">
+          <p class="text-sm text-slate-600 mb-2">Укажите темы и количество постов по каждой теме.</p>
+          <div class="flex gap-2 mb-3">
+            <input id="topicName" placeholder="Тема (например: Научные публикации студентов)" class="flex-1 border rounded-lg px-3 py-2 text-sm">
+            <input id="topicCount" type="number" min="1" max="20" value="1" class="w-20 border rounded-lg px-2 py-2 text-sm">
+            <button onclick="App.addTopic()" class="bg-slate-600 hover:bg-slate-700 text-white px-3 py-2 rounded-lg text-sm">＋</button>
+          </div>
+          <div id="topicList" class="space-y-1 mb-3"></div>
+          <button onclick="App.generateFromTopics()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-semibold">🪄 Сгенерировать план по темам</button>
+        </div>
+
+        <!-- Источник: аналитика -->
+        <div id="src-analytics" class="src-panel hidden border rounded-xl p-4 mb-4">
+          <p id="anSrcInfo" class="text-sm text-slate-600 mb-2">Генерация плана на основе загруженной аналитики стены (модуль «📊 Аналитика»). Сначала загрузите данные стены.</p>
+          <button onclick="App.generateFromAnalytics()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-semibold">🪄 Сгенерировать план по аналитике</button>
+        </div>
+
+        <!-- Источник: пользовательский промпт -->
+        <div id="src-prompt" class="src-panel hidden border rounded-xl p-4 mb-4">
+          <div class="flex flex-wrap gap-2 items-end mb-3">
+            <div class="flex-1 min-w-[220px]">
+              <label class="text-xs font-semibold text-slate-500">Выбрать сохранённый промпт</label>
+              <select id="promptSelect" onchange="App.onPromptSelect()" class="w-full mt-1 border rounded-lg px-2 py-2 text-sm">
+                <option value="">— стандартный промпт —</option>
+              </select>
+            </div>
+            <label class="bg-slate-100 hover:bg-slate-200 px-3 py-2 rounded-lg text-sm cursor-pointer">
+              📥 Загрузить из .txt
+              <input type="file" accept=".txt" class="hidden" onchange="App.loadPromptFromFile(this.files[0])">
+            </label>
+            <button onclick="App.openPromptModal(null)" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-2 rounded-lg text-sm">✍ Редактировать промпт</button>
+            <button onclick="App.saveCurrentAsPrompt()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded-lg text-sm">💾 Сохранить как новый промпт</button>
+          </div>
+          <div class="grid md:grid-cols-2 gap-3">
+            <div>
+              <label class="text-xs font-semibold text-slate-500">System Prompt (роль ИИ)</label>
+              <textarea id="curSysPrompt" rows="4" class="w-full mt-1 border rounded-lg px-3 py-2 text-sm" placeholder="Определение роли и стиля…"></textarea>
+            </div>
+            <div>
+              <label class="text-xs font-semibold text-slate-500">User Prompt (запрос)</label>
+              <textarea id="curUserPrompt" rows="4" class="w-full mt-1 border rounded-lg px-3 py-2 text-sm" placeholder="Конкретный запрос с инструкциями…"></textarea>
+            </div>
+          </div>
+          <div class="mt-3 flex flex-wrap gap-2 items-center">
+            <button onclick="App.generateFromCustomPrompt()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-semibold">🪄 Сгенерировать план по промпту</button>
+            <span id="curPromptName" class="text-xs text-slate-500"></span>
+          </div>
+          <div class="mt-4">
+            <h3 class="text-sm font-bold mb-2">Библиотека промптов</h3>
+            <div id="promptLibrary" class="space-y-1 text-sm"></div>
+          </div>
+        </div>
+
+        <div id="genStatus" class="hidden mt-2 text-sm text-blue-700 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2"></div>
+      </div>
+    </section>
+
+    <!-- ===== Модуль 2: Контент-план ===== -->
+    <section id="tab-plan" class="tab-panel hidden">
+      <div class="bg-white rounded-xl shadow p-5">
+        <div class="flex flex-wrap justify-between items-center gap-2 mb-4">
+          <h2 class="font-bold text-lg">📝 Контент-план</h2>
+          <div class="flex gap-2 flex-wrap">
+            <button onclick="App.exportJSON()" class="bg-slate-600 hover:bg-slate-700 text-white px-3 py-2 rounded-lg text-sm">⬇ JSON</button>
+            <button onclick="App.exportCSV()" class="bg-slate-600 hover:bg-slate-700 text-white px-3 py-2 rounded-lg text-sm">⬇ CSV</button>
+            <button onclick="App.publishTodayAll()" class="bg-vk-600 hover:bg-vk-700 text-white px-3 py-2 rounded-lg text-sm" style="background:#0077ff">📤 Опубликовать все сегодняшние</button>
+          </div>
+        </div>
+        <div id="postsList" class="space-y-4"></div>
+        <p id="emptyPlan" class="text-slate-400 text-sm py-8 text-center">Контент-план пуст. Перейдите в «📅 Планировщик» и сгенерируйте план.</p>
+      </div>
+    </section>
+
+    <!-- ===== Модуль 3: Аналитика ===== -->
+    <section id="tab-analytics" class="tab-panel hidden">
+      <div class="bg-white rounded-xl shadow p-5 mb-4">
+        <h2 class="font-bold text-lg mb-3">📊 Аналитика страницы</h2>
+        <div class="grid md:grid-cols-2 gap-4 mb-4">
+          <div class="border rounded-xl p-4">
+            <h3 class="font-semibold text-sm mb-2">Способ 1: Через VK API (надёжно, полные метрики)</h3>
+            <p class="text-xs text-slate-500 mb-2">Работает с пользовательским токеном (wall + ссылка на стену) или с сервисным ключом доступа (dev.vk.com) для чтения публичных стен и сообществ — укажите «Сообщество или ID» в ⚙ Настройках.</p>
+            <button onclick="App.loadWallViaAPI()" class="bg-[#0077ff] hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-semibold">🔄 Загрузить стену через VK API</button>
+          </div>
+          <div class="border rounded-xl p-4">
+            <h3 class="font-semibold text-sm mb-2">Способ 2: Парсинг HTML-файла (без токена, обходит CORS)</h3>
+            <p class="text-xs text-slate-500 mb-2">Откройте стену → Ctrl+S → «Веб-страница полностью» → загрузите файл сюда.</p>
+            <input type="file" accept=".html,.htm" onchange="App.loadWallViaHTML(this.files[0])" class="text-sm">
+          </div>
+        </div>
+        <div id="anError" class="hidden text-sm bg-red-50 border border-red-200 text-red-700 rounded-lg px-3 py-2 mb-3 whitespace-pre-line"></div>
+        <div id="anSummary" class="hidden grid grid-cols-2 md:grid-cols-4 gap-3 mb-4"></div>
+        <div id="anContent"></div>
+      </div>
+      <div class="bg-white rounded-xl shadow p-5">
+        <h2 class="font-bold text-lg mb-2">🧠 Аудит личного бренда через DeepSeek</h2>
+        <p class="text-sm text-slate-600 mb-3">DeepSeek проанализирует топ-20 постов по вовлечённости и сформирует отчёт: сильные стороны, слабые места, стратегия, 7 шагов на месяц, 5 идей постов.</p>
+        <button onclick="App.runAudit()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-semibold">🪄 Провести аудит</button>
+        <div id="auditResult" class="mt-4 hidden"></div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="text-center text-xs text-slate-400 py-6">
+    Данные хранятся локально в XML-файле • Токены — только в localStorage • Без телеметрии • MIT
+  </footer>
+</div>
+
+<!-- ===== Модальное окно текста поста ===== -->
+<div id="modalText" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onclick="if(event.target===this)App.closeModals()">
+  <div class="bg-white rounded-xl max-w-3xl w-full max-h-[80vh] flex flex-col fade-in">
+    <div class="flex justify-between items-center p-4 border-b">
+      <h3 id="modalTitle" class="font-bold">Текст поста</h3>
+      <button onclick="App.closeModals()" class="text-2xl leading-none px-2">×</button>
+    </div>
+    <pre id="modalBody" class="p-4 overflow-auto whitespace-pre-wrap text-sm flex-1"></pre>
+    <div class="p-3 border-t flex gap-2">
+      <button onclick="App.copyModalText()" class="bg-slate-600 text-white px-3 py-2 rounded-lg text-sm">📋 Копировать</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Модальное окно промпта ===== -->
+<div id="modalPrompt" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onclick="if(event.target===this)App.closeModals()">
+  <div class="bg-white rounded-xl max-w-3xl w-full max-h-[85vh] overflow-auto fade-in p-5">
+    <div class="flex justify-between items-center mb-3">
+      <h3 class="font-bold">🤖 Промпт генерации</h3>
+      <button onclick="App.closeModals()" class="text-2xl leading-none px-2">×</button>
+    </div>
+    <div id="mpSelectorWrap" class="mb-3">
+      <label class="text-xs font-semibold text-slate-500">Выбрать сохранённый промпт</label>
+      <select id="mpSelector" onchange="App.applyModalPrompt()" class="w-full mt-1 border rounded-lg px-2 py-2 text-sm">
+        <option value="">— стандартный промпт —</option>
+      </select>
+    </div>
+    <label class="text-xs font-semibold text-slate-500">System Prompt</label>
+    <textarea id="mpSys" rows="4" class="w-full border rounded-lg px-3 py-2 text-sm mb-3"></textarea>
+    <label class="text-xs font-semibold text-slate-500">User Prompt</label>
+    <textarea id="mpUser" rows="6" class="w-full border rounded-lg px-3 py-2 text-sm mb-3"></textarea>
+    <div class="flex flex-wrap gap-2">
+      <button onclick="App.saveModalPrompt()" class="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm">✔ Применить к посту</button>
+      <button id="mpSaveNewBtn" onclick="App.saveModalPromptAsNew()" class="bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm">💾 Сохранить как новый промпт</button>
+      <button onclick="App.generateWithModalPrompt()" class="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-semibold">🪄 Сгенерировать текст</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Модальное окно библиотеки промптов ===== -->
+<div id="modalLib" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onclick="if(event.target===this)App.closeModals()">
+  <div class="bg-white rounded-xl max-w-2xl w-full max-h-[85vh] overflow-auto fade-in p-5">
+    <div class="flex justify-between items-center mb-3">
+      <h3 class="font-bold">⭐ Библиотека пользовательских промптов</h3>
+      <button onclick="App.closeModals()" class="text-2xl leading-none px-2">×</button>
+    </div>
+    <label class="text-xs font-semibold text-slate-500">Имя промпта</label>
+    <input id="libName" class="w-full border rounded-lg px-3 py-2 text-sm mb-3" placeholder="Например: Научные анонсы">
+    <label class="text-xs font-semibold text-slate-500">System Prompt</label>
+    <textarea id="libSys" rows="4" class="w-full border rounded-lg px-3 py-2 text-sm mb-3"></textarea>
+    <label class="text-xs font-semibold text-slate-500">User Prompt</label>
+    <textarea id="libUser" rows="5" class="w-full border rounded-lg px-3 py-2 text-sm mb-3"></textarea>
+    <div class="flex gap-2">
+      <button onclick="App.saveLibraryPrompt()" class="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm">💾 Сохранить</button>
+      <button onclick="App.closeModals()" class="bg-slate-200 px-4 py-2 rounded-lg text-sm">Отмена</button>
+    </div>
+  </div>
+</div>
+
+<input type="file" id="globalXmlInput" accept=".xml,text/xml" class="hidden" onchange="App.onOpenXml(this.files[0]); this.value='';">
+
+<script>
+/* =====================================================================
+   Приложение «Личный бренд преподавателя ВУЗа — ВКонтакте»
+   Одностраничное локальное приложение. Данные — XML-файл, токены — localStorage.
+   ===================================================================== */
+
+const App = (() => {
+  // ---------- Утилиты ----------
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const uuid = () => (crypto.randomUUID ? crypto.randomUUID() : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => { const r = Math.random()*16|0; return (c==='x'?r:(r&0x3|0x8)).toString(16); }));
+  const todayStr = () => { const d = new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); };
+  const fmtDate = iso => { if(!iso) return ''; const [y,m,d]=iso.split('-'); return `${d}.${m}.${y}`; };
+
+  function toast(msg, ok=true) {
+    let t = $('toastBox');
+    if (!t) { t = document.createElement('div'); t.id='toastBox'; t.className='fixed bottom-4 right-4 z-[100] space-y-2'; document.body.appendChild(t); }
+    const el = document.createElement('div');
+    el.className = (ok?'bg-emerald-600':'bg-red-600') + ' text-white px-4 py-2 rounded-lg shadow text-sm fade-in max-w-sm';
+    el.textContent = msg;
+    t.appendChild(el);
+    setTimeout(()=>el.remove(), 5000);
+  }
+
+  // ---------- Состояние ----------
+  let state = null;            // { profile, customPrompts, posts, wallPosts, audit }
+  let fileHandle = null;       // File System Access API handle
+  let fileName = null;
+  let dirty = false;
+  let currentSource = 'document';
+  let topicsDraft = [];        // [{name,count}]
+  let modalPostId = null;      // пост, для которого открыто окно промпта
+  let libEditId = null;        // редактируемый промпт в библиотеке
+  let saveTimer = null;
+
+  const DEFAULT_SYS_PROMPT = 'Ты — эксперт по контент-маркетингу и управлению личным брендом преподавателей вузов в социальной сети «ВКонтакте». Ты помогаешь академическим работникам выстраивать профессиональную, уважительную и вовлекающую коммуникацию. Пиши грамотно, в научно-популярном стиле, без канцелярита и без emoji-перегруза.';
+  const DEFAULT_USER_PROMPT = 'Составь контент-план публикаций на стене ВКонтакте преподавателя вуза. Верни СТРОГО JSON-массив без пояснений, каждый элемент: {"date":"ГГГГ-ММ-ДД","time":"ЧЧ:ММ","topic":"тема","format":"статья|карточка|опрос|видео|сторителлинг|кейс|подборка","goal":"цель поста"}. Учти тип плана, дату начала, периодичность и максимальное количество постов.';
+
+  const POST_FORMATS = ['статья','карточка','опрос','видео','сторителлинг','кейс','подборка'];
+
+  // ---------- Изменение данных / автосохранение ----------
+  function markDirty() {
+    dirty = true;
+    $('dirtyBadge').classList.remove('hidden');
+    const b = $('btnSave');
+    b.classList.remove('hidden','bg-emerald-500');
+    b.classList.add('bg-red-500','animate-pulse');
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => { if (dirty && fileHandle) autoSave(); }, 1000);
+  }
+  function markClean() {
+    dirty = false;
+    $('dirtyBadge').classList.add('hidden');
+    const b = $('btnSave');
+    b.classList.remove('bg-red-500','animate-pulse');
+    b.classList.add('bg-emerald-500');
+  }
+
+  // ---------- XML: сериализация ----------
+  function xmlEsc(s){ return esc(s); }
+  function toXML() {
+    const L = [];
+    L.push('<?xml version="1.0" encoding="UTF-8"?>');
+    L.push('<!-- Личный бренд преподавателя ВУЗа — ВКонтакте. Все данные, кроме API-токенов, хранятся в этом файле. -->');
+    L.push('<brandProfile version="1.0" app="vk-teacher-brand" generator="one-file-html">');
+    const p = state.profile;
+    L.push(`  <profile created="${xmlEsc(p.created)}"><fullName>${xmlEsc(p.fullName)}</fullName><position>${xmlEsc(p.position)}</position></profile>`);
+    L.push('  <customPrompts>');
+    for (const pr of state.customPrompts) {
+      L.push(`    <prompt id="${xmlEsc(pr.id)}" name="${xmlEsc(pr.name)}" createdAt="${xmlEsc(pr.createdAt)}">`);
+      L.push(`      <systemPrompt>${xmlEsc(pr.system)}</systemPrompt>`);
+      L.push(`      <userPrompt>${xmlEsc(pr.user)}</userPrompt>`);
+      L.push('    </prompt>');
+    }
+    L.push('  </customPrompts>');
+    L.push('  <contentPlan>');
+    for (const post of state.posts) {
+      L.push(`    <post id="${xmlEsc(post.id)}" date="${xmlEsc(post.date)}" time="${xmlEsc(post.time||'10:00')}">`);
+      L.push(`      <topic>${xmlEsc(post.topic)}</topic>`);
+      L.push(`      <format>${xmlEsc(post.format)}</format>`);
+      L.push(`      <goal>${xmlEsc(post.goal)}</goal>`);
+      L.push(`      <text>${xmlEsc(post.text||'')}</text>`);
+      L.push(`      <published>${post.published?'true':'false'}</published>`);
+      L.push(`      <needsRewrite>${post.needsRewrite?'true':'false'}</needsRewrite>`);
+      if (post.originalText) L.push(`      <originalText>${xmlEsc(post.originalText)}</originalText>`);
+      if (post.customPromptId) L.push(`      <customPromptId>${xmlEsc(post.customPromptId)}</customPromptId>`);
+      if (post.customPromptSnapshot) {
+        L.push('      <customPromptSnapshot>');
+        L.push(`        <system>${xmlEsc(post.customPromptSnapshot.system)}</system>`);
+        L.push(`        <user>${xmlEsc(post.customPromptSnapshot.user)}</user>`);
+        L.push('      </customPromptSnapshot>');
+      }
+      if (post.analyticsRef) L.push(`      <analyticsRef>${xmlEsc(post.analyticsRef)}</analyticsRef>`);
+      if (post.extraNotes) L.push(`      <extraNotes>${xmlEsc(post.extraNotes)}</extraNotes>`);
+      L.push('    </post>');
+    }
+    L.push('  </contentPlan>');
+    L.push('  <wallAnalytics loadedAt="'+xmlEsc(state.wallLoadedAt||'')+'">');
+    for (const w of state.wallPosts) {
+      L.push(`    <wallPost id="${xmlEsc(w.id)}" date="${xmlEsc(w.date)}" url="${xmlEsc(w.url||'')}">`);
+      L.push(`      <text>${xmlEsc(w.text)}</text>`);
+      L.push(`      <likes>${w.likes}</likes><comments>${w.comments}</comments><reposts>${w.reposts}</reposts><views>${w.views}</views><er>${w.er.toFixed?w.er.toFixed(2):w.er}</er>`);
+      L.push('    </wallPost>');
+    }
+    L.push('  </wallAnalytics>');
+    if (state.audit) {
+      L.push('  <brandAudit generatedAt="'+xmlEsc(state.audit.generatedAt||'')+'">');
+      L.push('    <strengths>'+ (state.audit.strengths||[]).map(s=>'<item>'+xmlEsc(s)+'</item>').join('') +'</strengths>');
+      L.push('    <weaknesses>'+ (state.audit.weaknesses||[]).map(s=>'<item>'+xmlEsc(s)+'</item>').join('') +'</weaknesses>');
+      L.push('    <strategy><![CDATA['+(state.audit.strategy||'')+']]></strategy>');
+      L.push('    <steps7>'+ (state.audit.steps||[]).map(s=>'<item>'+xmlEsc(s)+'</item>').join('') +'</steps7>');
+      L.push('    <ideas5>'+ (state.audit.ideas||[]).map(s=>'<item>'+xmlEsc(s)+'</item>').join('') +'</ideas5>');
+      L.push('  </brandAudit>');
+    }
+    L.push('</brandProfile>');
+    return L.join('\n');
+  }
+
+  // ---------- XML: парсинг ----------
+  function txt(node, tag) { const n = node.querySelector(':scope > '+tag); return n ? n.textContent : ''; }
+  function fromXML(xmlStr) {
+    const doc = new DOMParser().parseFromString(xmlStr, 'application/xml');
+    if (doc.querySelector('parsererror')) throw new Error('Файл повреждён или не является корректным XML.');
+    const root = doc.querySelector('brandProfile');
+    if (!root) throw new Error('Не найден корневой элемент <brandProfile>.');
+    const prof = root.querySelector('profile');
+    const st = {
+      profile: { fullName: txt(prof,'fullName'), position: txt(prof,'position'), created: prof?.getAttribute('created') || new Date().toISOString() },
+      customPrompts: [...root.querySelectorAll('customPrompts > prompt')].map(n => ({
+        id: n.getAttribute('id') || uuid(), name: n.getAttribute('name')||'Без имени', createdAt: n.getAttribute('createdAt')||'',
+        system: txt(n,'systemPrompt'), user: txt(n,'userPrompt')
+      })),
+      posts: [...root.querySelectorAll('contentPlan > post')].map(n => {
+        const snap = n.querySelector(':scope > customPromptSnapshot');
+        return {
+          id: n.getAttribute('id') || uuid(), date: n.getAttribute('date')||todayStr(), time: n.getAttribute('time')||'10:00',
+          topic: txt(n,'topic'), format: txt(n,'format')||'статья', goal: txt(n,'goal'),
+          text: txt(n,'text'), published: txt(n,'published')==='true', needsRewrite: txt(n,'needsRewrite')==='true',
+          originalText: txt(n,'originalText'), customPromptId: txt(n,'customPromptId')||null,
+          customPromptSnapshot: snap ? { system: txt(snap,'system'), user: txt(snap,'user') } : null,
+          analyticsRef: txt(n,'analyticsRef')||null, extraNotes: txt(n,'extraNotes')||''
+        };
+      }),
+      wallLoadedAt: root.querySelector('wallAnalytics')?.getAttribute('loadedAt') || '',
+      wallPosts: [...root.querySelectorAll('wallAnalytics > wallPost')].map(n => ({
+        id: n.getAttribute('id')||uuid(), date: n.getAttribute('date')||'', url: n.getAttribute('url')||'',
+        text: txt(n,'text'), likes:+txt(n,'likes')||0, comments:+txt(n,'comments')||0, reposts:+txt(n,'reposts')||0, views:+txt(n,'views')||0, er:+txt(n,'er')||0
+      })),
+      audit: null
+    };
+    const a = root.querySelector('brandAudit');
+    if (a) st.audit = {
+      generatedAt: a.getAttribute('generatedAt')||'',
+      strengths: [...a.querySelectorAll('strengths > item')].map(i=>i.textContent),
+      weaknesses: [...a.querySelectorAll('weaknesses > item')].map(i=>i.textContent),
+      strategy: txt(a,'strategy'),
+      steps: [...a.querySelectorAll('steps7 > item')].map(i=>i.textContent),
+      ideas: [...a.querySelectorAll('ideas5 > item')].map(i=>i.textContent)
+    };
+    return st;
+  }
+
+  // ---------- Сохранение / открытие файлов ----------
+  async function autoSave() {
+    if (!fileHandle) return;
+    try {
+      if (fileHandle.createWritable) {
+        const w = await fileHandle.createWritable();
+        await w.write(toXML());
+        await w.close();
+        markClean();
+        toast('Автосохранение в файл выполнено');
+      } else { downloadXML(); markClean(); }
+    } catch(e) { toast('Ошибка автосохранения: '+e.message, false); }
+  }
+  function downloadXML() {
+    const blob = new Blob([toXML()], {type:'text/xml;charset=utf-8'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = (fileName || (state.profile.fullName.replace(/\s+/g,'_') || 'profile') + '.xml').replace(/\.xml$/,'')+'.xml';
+    a.click();
+    URL.revokeObjectURL(a.href);
+    markClean();
+  }
+  async function saveFile() {
+    if (!state) return;
+    if (window.showSaveFilePicker) {
+      try {
+        if (!fileHandle) {
+          fileHandle = await window.showSaveFilePicker({ suggestedName: (state.profile.fullName.replace(/\s+/g,'_')||'profile')+'.xml', types:[{description:'XML', accept:{'text/xml':['.xml']}}] });
+          fileName = fileHandle.name;
+        }
+        const w = await fileHandle.createWritable();
+        await w.write(toXML()); await w.close();
+        markClean(); toast('Файл сохранён ✔');
+        return;
+      } catch(e) { if (e.name==='AbortError') return; }
+    }
+    downloadXML(); toast('Файл скачан (браузер не поддерживает прямую запись в файл)');
+  }
+  function openFile() { $('globalXmlInput').click(); }
+  async function onOpenXml(file) {
+    if (!file) return;
+    try {
+      const text = await file.text();
+      state = fromXML(text);
+      fileName = file.name;
+      if (window.showOpenFilePicker) {
+        try { const [h] = await window.showOpenFilePicker({types:[{description:'XML',accept:{'text/xml':['.xml']}}]}); fileHandle = h; } catch(e){}
+      }
+      enterApp();
+      markClean();
+      toast('Профиль загружен: '+state.profile.fullName);
+    } catch(e) { toast('Не удалось открыть файл: '+e.message, false); }
+  }
+
+  // ---------- Профиль ----------
+  function showWelcome() { $('welcomePanel').classList.remove('hidden'); $('mainUI').classList.add('hidden'); }
+  function createProfile() {
+    const name = $('newName').value.trim(), pos = $('newPost').value.trim();
+    if (!name) return toast('Укажите ФИО', false);
+    state = { profile:{fullName:name, position:pos, created:new Date().toISOString()}, customPrompts:[], posts:[], wallPosts:[], wallLoadedAt:'', audit:null };
+    fileHandle = null; fileName = null;
+    enterApp(); markDirty();
+  }
+  function enterApp() {
+    $('welcomePanel').classList.add('hidden');
+    $('mainUI').classList.remove('hidden');
+    $('profileLine').textContent = state.profile.fullName + (state.profile.position ? ' · ' + state.profile.position : '');
+    $('planStartDate').value = $('planStartDate').value || todayStr();
+    switchTab('planner');
+    renderPrompts(); renderTopics(); renderPosts(); renderAnalytics(); renderAudit();
+  }
+
+  // ---------- Вкладки ----------
+  function switchTab(tab) {
+    document.querySelectorAll('.tab-panel').forEach(p=>p.classList.add('hidden'));
+    $('tab-'+tab).classList.remove('hidden');
+    document.querySelectorAll('.tab-btn').forEach(b=>{
+      const on = b.dataset.tab===tab;
+      b.classList.toggle('bg-blue-600', on); b.classList.toggle('text-white', on);
+      b.classList.toggle('text-slate-600', !on);
+    });
+    $('planCount').textContent = state && state.posts.length ? '('+state.posts.length+')' : '';
+  }
+  function switchSource(src) {
+    currentSource = src;
+    document.querySelectorAll('.src-panel').forEach(p=>p.classList.add('hidden'));
+    $('src-'+src).classList.remove('hidden');
+    document.querySelectorAll('.src-btn').forEach(b=>{
+      const on=b.dataset.src===src;
+      b.classList.toggle('bg-white', on); b.classList.toggle('shadow', on); b.classList.toggle('font-semibold', on);
+      b.classList.toggle('text-slate-500', !on);
+    });
+  }
+
+  // ---------- Настройки ----------
+  function toggleSettings(){ $('settingsPanel').classList.toggle('hidden'); loadSettingsUI(); }
+  function loadSettingsUI(){
+    $('setDsToken').value = localStorage.getItem('ds_token')||'';
+    $('setVkToken').value = localStorage.getItem('vk_token')||'';
+    $('setVkWall').value  = localStorage.getItem('vk_wall')||'';
+    $('setVkServiceToken').value = localStorage.getItem('vk_service_token')||'';
+    $('setVkDomain').value = localStorage.getItem('vk_domain')||'';
+  }
+  function saveSettings(){
+    localStorage.setItem('ds_token', $('setDsToken').value.trim());
+    localStorage.setItem('vk_token', $('setVkToken').value.trim());
+    localStorage.setItem('vk_wall',  $('setVkWall').value.trim());
+    localStorage.setItem('vk_service_token', $('setVkServiceToken').value.trim());
+    localStorage.setItem('vk_domain', normalizeDomain($('setVkDomain').value));
+    $('settingsSavedMsg').classList.remove('hidden');
+    setTimeout(()=>$('settingsSavedMsg').classList.add('hidden'),2000);
+  }
+  const dsToken = ()=>localStorage.getItem('ds_token')||'';
+  const vkToken = ()=>localStorage.getItem('vk_token')||'';
+  const vkServiceToken = ()=>localStorage.getItem('vk_service_token')||'';
+  const vkDomain = ()=>localStorage.getItem('vk_domain')||'';
+
+  // ---------- DeepSeek API ----------
+  async function callDeepSeek(system, user, {json=false}={}) {
+    const token = dsToken();
+    if (!token) throw new Error('Не задан токен DeepSeek. Откройте ⚙ Настройки и укажите ключ (sk-...).');
+    const resp = await fetch('https://api.deepseek.com/chat/completions', {
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},
+      body: JSON.stringify({ model:'deepseek-chat', temperature:0.7, max_tokens:4000,
+        messages:[{role:'system',content:system},{role:'user',content:user}] })
+    });
+    if (!resp.ok) {
+      let d=''; try{ d=(await resp.json()).error?.message||''; }catch(e){}
+      throw new Error('DeepSeek API ошибка '+resp.status+(d?': '+d:'')+'. Проверьте токен и баланс на platform.deepseek.com');
+    }
+    const data = await resp.json();
+    let content = data.choices?.[0]?.message?.content || '';
+    if (json) content = extractJSON(content);
+    return content;
+  }
+  function extractJSON(text) {
+    text = text.replace(/```json/gi,'```').split('```');
+    const cand = text.length>1 ? text[1] : text[0];
+    const m = cand.match(/(\[[\s\S]*\]|\{[\s\S]*\})/);
+    if (!m) throw new Error('DeepSeek не вернул корректный JSON. Попробуйте перегенерировать.');
+    return JSON.parse(m[1]);
+  }
+  function genStatus(msg) {
+    const el=$('genStatus');
+    if (!msg) { el.classList.add('hidden'); return; }
+    el.classList.remove('hidden'); el.textContent = msg;
+  }
+
+  // ---------- Даты ----------
+  function addDays(iso, n) { const d=new Date(iso+'T00:00:00'); d.setDate(d.getDate()+n); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+
+  function makePost(o) {
+    return Object.assign({ id:uuid(), date:todayStr(), time:'10:00', topic:'', format:'статья', goal:'', text:'',
+      published:false, needsRewrite:false, originalText:'', customPromptId:null, customPromptSnapshot:null,
+      analyticsRef:null, extraNotes:'' }, o);
+  }
+  function appendPosts(arr) {
+    const start = $('planStartDate').value || todayStr();
+    const period = Math.max(1, +$('planPeriod').value||3);
+    const max = Math.max(1, +$('planMax').value||12);
+    const usedDates = new Set(state.posts.map(p=>p.date));
+    const taken = arr.slice(0,max);
+    taken.forEach((it,i)=>{
+      const date = (()=>{
+        if (it.date && /^\d{4}-\d{2}-\d{2}$/.test(it.date)) return it.date;
+        let d = addDays(start, period*i);
+        while (usedDates.has(d)) d = addDays(d,1);
+        usedDates.add(d);
+        return d;
+      })();
+      state.posts.push(makePost({ date, time: it.time||'10:00', topic: it.topic||'Без темы',
+        format: POST_FORMATS.includes(it.format)?it.format:'статья', goal: it.goal||'информирование',
+        analyticsRef: it.analyticsRef||null,
+        customPromptId: it._promptId||null, customPromptSnapshot: it._snapshot||null }));
+    });
+    state.posts.sort((a,b)=> (a.date+a.time).localeCompare(b.date+b.time));
+    markDirty(); renderPosts(); switchTab('plan');
+    toast('Добавлено постов: '+taken.length);
+  }
+
+  // ---------- Стратегия 1: из документа ----------
+  async function onDocLoaded(file) {
+    if (!file) return;
+    const ta = $('docText'); ta.value='';
+    try {
+      if (/\.docx$/i.test(file.name)) {
+        const buf = await file.arrayBuffer();
+        const res = await mammoth.extractRawText({arrayBuffer: buf});
+        ta.value = res.value;
+      } else if (/\.pdf$/i.test(file.name)) {
+        if (!window.pdfjsLib) throw new Error('Библиотека pdf.js не загрузилась (нет интернета?)');
+        const buf = await file.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument({data:buf}).promise;
+        let out=[];
+        for (let i=1;i<=pdf.numPages;i++){ const page=await pdf.getPage(i); const tc=await page.getTextContent(); out.push(tc.items.map(it=>it.str).join(' ')); }
+        ta.value = out.join('\n');
+      } else {
+        ta.value = await file.text();
+      }
+      toast('Текст извлечён ('+ta.value.length+' симв.)');
+    } catch(e) { toast('Ошибка извлечения текста: '+e.message, false); }
+    $('docInput').value='';
+  }
+  async function generateFromDocument() {
+    const docText = $('docText').value.trim();
+    if (!docText) return toast('Загрузите документ или вставьте текст вручную', false);
+    const params = planParams();
+    const sys = DEFAULT_SYS_PROMPT;
+    const user = DEFAULT_USER_PROMPT + '\n\nТип плана: ' + params.type + '\nДата начала: ' + params.start + '\nПериодичность: каждые ' + params.period + ' дн.\nМаксимум постов: ' + params.max +
+      '\n\nТекст исходного документа:\n"""\n' + docText.slice(0, 12000) + '\n"""';
+    await runPlanGeneration(sys, user, 'Извлечение плана из документа через DeepSeek…');
+  }
+
+  // ---------- Стратегия 2: темы ----------
+  function addTopic() {
+    const name = $('topicName').value.trim(); const cnt = Math.max(1,+$('topicCount').value||1);
+    if (!name) return toast('Укажите тему', false);
+    topicsDraft.push({name, count:cnt});
+    $('topicName').value='';
+    renderTopics();
+  }
+  function removeTopic(i){ topicsDraft.splice(i,1); renderTopics(); }
+  function renderTopics() {
+    const el = $('topicList'); if(!el) return;
+    el.innerHTML = topicsDraft.map((t,i)=>`<div class="flex items-center gap-2 bg-slate-50 rounded-lg px-3 py-1.5">
+      <span class="flex-1">${esc(t.name)}</span><span class="text-xs text-slate-500">×${t.count}</span>
+      <button onclick="App.removeTopic(${i})" class="text-red-400 hover:text-red-600">✕</button></div>`).join('') || '<p class="text-xs text-slate-400">Темы ещё не добавлены</p>';
+  }
+  async function generateFromTopics() {
+    if (!topicsDraft.length) return toast('Добавьте хотя бы одну тему', false);
+    const params = planParams();
+    const total = topicsDraft.reduce((s,t)=>s+t.count,0);
+    const list = topicsDraft.map(t=>`«${t.name}» — ${t.count} пост(ов)`).join('; ');
+    const user = DEFAULT_USER_PROMPT + `\n\nТип плана: ${params.type}\nПериодичность: каждые ${params.period} дн.\n\nРаспредели посты строго по следующим темам (каждая тема указывается столько раз, сколько постов запрошено, но с УНИКАЛЬНЫМИ ракурсами раскрытия):\n${list}\nВсего постов: ${Math.min(total, params.max)}. Первая дата — ${params.start}, далее с шагом ${params.period} дн.`;
+    await runPlanGeneration(DEFAULT_SYS_PROMPT, user, 'Декомпозиция тем через DeepSeek…');
+  }
+
+  // ---------- Стратегия 3: аналитика ----------
+  async function generateFromAnalytics() {
+    if (!state.wallPosts.length) return toast('Сначала загрузите данные стены в модуле «📊 Аналитика»', false);
+    const params = planParams();
+    const top = [...state.wallPosts].sort((a,b)=>b.er-a.er).slice(0,15);
+    const stats = top.map((p,i)=>`${i+1}. [${p.id}] ${fmtDate(p.date)} ER=${p.er}% 👍${p.likes} 💬${p.comments} 🔁${p.reposts} 👁${p.views} — ${p.text.slice(0,140).replace(/\n/g,' ')}`).join('\n');
+    const user = DEFAULT_USER_PROMPT +
+      `\n\nТип плана: ${params.type}\nДата начала: ${params.start}, периодичность ${params.period} дн., максимум ${params.max} постов.\n\nСтатистика последних публикаций стены (ранжировано по вовлечённости ER). Выяви успешные тематические паттерны и предложи НОВЫЕ посты в выигрышных темах/формах. Для каждого поста обязательно поле "analyticsRef" — id поста-источника из списка выше.\n\n${stats}`;
+    await runPlanGeneration(DEFAULT_SYS_PROMPT, user, 'Аналитическое прогнозирование через DeepSeek…', true);
+  }
+
+  // ---------- Стратегия 4: пользовательский промпт ----------
+  function planParams(){ return { type:$('planType').value, start:$('planStartDate').value||todayStr(), period:+$('planPeriod').value||3, max:+$('planMax').value||12 }; }
+  async function runPlanGeneration(sys, user, statusMsg, withRef=false) {
+    genStatus('⏳ ' + statusMsg);
+    try {
+      const arr = await callDeepSeek(sys, user, {json:true});
+      const list = Array.isArray(arr)?arr:(arr.posts||[]);
+      const params = planParams();
+      const raw = Array.isArray(arr)?arr:(arr.posts||[]);
+      const mapped = raw.slice(0, params.max).map(it=>({
+        date: it.date, time: it.time, topic: it.topic, format: it.format, goal: it.goal,
+        analyticsRef: withRef ? (it.analyticsRef||null) : null
+      }));
+      const pid = $('promptSelect')?.value;
+      if (currentSource==='prompt' && pid) {
+        const pr = state.customPrompts.find(p=>p.id===pid);
+        if (pr) mapped.forEach(m=>{ m._promptId=pr.id; m._snapshot={system:$('curSysPrompt').value, user:$('curUserPrompt').value}; });
+      }
+      appendPosts(mapped);
+      genStatus('');
+    } catch(e) { genStatus('❌ ' + e.message); toast(e.message,false); }
+  }
+
+  // ---------- Библиотека промптов ----------
+  function renderPrompts() {
+    const sel1 = $('promptSelect'), sel2 = $('mpSelector');
+    const opts = '<option value="">— стандартный промпт —</option>' + state.customPrompts.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('');
+    if (sel1) sel1.innerHTML = opts;
+    if (sel2) sel2.innerHTML = opts;
+    const lib = $('promptLibrary');
+    if (lib) lib.innerHTML = state.customPrompts.map(p=>`<div class="flex items-center gap-2 bg-slate-50 rounded-lg px-3 py-1.5">
+      <span class="flex-1">⭐ ${esc(p.name)}</span>
+      <button title="Редактировать" onclick="App.openPromptModal('${p.id}')" class="text-blue-500 hover:text-blue-700">✏️</button>
+      <button title="Удалить" onclick="App.deletePrompt('${p.id}')" class="text-red-400 hover:text-red-600">✕</button>
+    </div>`).join('') || '<p class="text-xs text-slate-400">Библиотека пуста. Создайте промпт кнопкой «✍ Редактировать промпт» → «Сохранить как новый».</p>';
+    const cp = $('curPromptName');
+    if (cp) cp.textContent = $('promptSelect')?.value ? '' : '';
+  }
+  function onPromptSelect() {
+    const id = $('promptSelect').value;
+    const p = state.customPrompts.find(x=>x.id===id);
+    $('curSysPrompt').value = p ? p.system : DEFAULT_SYS_PROMPT;
+    $('curUserPrompt').value = p ? p.user : DEFAULT_USER_PROMPT;
+    $('curPromptName').textContent = p ? 'Активен промпт: '+p.name : 'Стандартный промпт';
+  }
+  function loadPromptFromFile(file) {
+    if (!file) return;
+    file.text().then(t=>{ $('curUserPrompt').value = t.trim(); toast('Промпт загружен из файла'); });
+  }
+  function saveCurrentAsPrompt() {
+    const name = prompt('Имя нового промпта:', 'Мой промпт');
+    if (!name) return;
+    state.customPrompts.push({ id:uuid(), name, system:$('curSysPrompt').value||DEFAULT_SYS_PROMPT, user:$('curUserPrompt').value||DEFAULT_USER_PROMPT, createdAt:new Date().toISOString() });
+    markDirty(); renderPrompts(); toast('Промпт «'+name+'» сохранён в библиотеку');
+  }
+  function openPromptModal(id) {
+    libEditId = id;
+    const p = id ? state.customPrompts.find(x=>x.id===id) : null;
+    $('libName').value = p ? p.name : '';
+    $('libSys').value = p ? p.system : ($('curSysPrompt')?.value || DEFAULT_SYS_PROMPT);
+    $('libUser').value = p ? p.user : ($('curUserPrompt')?.value || DEFAULT_USER_PROMPT);
+    $('modalLib').classList.remove('hidden');
+  }
+  function saveLibraryPrompt() {
+    const name = $('libName').value.trim();
+    if (!name) return toast('Укажите имя промпта', false);
+    if (libEditId) {
+      const p = state.customPrompts.find(x=>x.id===libEditId);
+      if (p) { p.name=name; p.system=$('libSys').value; p.user=$('libUser').value; }
+    } else {
+      state.customPrompts.push({ id:uuid(), name, system:$('libSys').value, user:$('libUser').value, createdAt:new Date().toISOString() });
+    }
+    markDirty(); renderPrompts(); closeModals(); toast('Промпт сохранён');
+  }
+  function deletePrompt(id) {
+    const p = state.customPrompts.find(x=>x.id===id);
+    if (!confirm(`Удалить промпт «${p?p.name:''}»? В уже сгенерированных постах он останется через снимок.`)) return;
+    state.customPrompts = state.customPrompts.filter(x=>x.id!==id);
+    markDirty(); renderPrompts();
+  }
+  async function generateFromCustomPrompt() {
+    const params = planParams();
+    const sys = $('curSysPrompt').value.trim() || DEFAULT_SYS_PROMPT;
+    const usr = $('curUserPrompt').value.trim() || DEFAULT_USER_PROMPT;
+    const fullUser = usr + `\n\nКонтекст: преподаватель ${state.profile.fullName} (${state.profile.position}). Тип плана: ${params.type}. Дата начала: ${params.start}. Периодичность: каждые ${params.period} дн. Максимум постов: ${params.max}. Верни строго JSON-массив [{"date","time","topic","format","goal"}].`;
+    genStatus('⏳ Генерация плана по пользовательскому промпту…');
+    try {
+      const arr = await callDeepSeek(sys, fullUser, {json:true});
+      const raw = Array.isArray(arr)?arr:(arr.posts||[]);
+      const pid = $('promptSelect').value || null;
+      const mapped = raw.slice(0, params.max).map(it=>({ ...it, _promptId: pid, _snapshot:{system:sys,user:usr} }));
+      appendPosts(mapped);
+      genStatus('');
+    } catch(e) { genStatus('❌ '+e.message); toast(e.message,false); }
+  }
+
+  // ---------- Рендер постов ----------
+  function renderPosts() {
+    if (!state) return;
+    $('planCount').textContent = state.posts.length ? '('+state.posts.length+')' : '';
+    $('emptyPlan').classList.toggle('hidden', state.posts.length>0);
+    const el = $('postsList');
+    el.innerHTML = state.posts.map((p,idx)=>{
+      const isToday = p.date === todayStr();
+      const hasText = !!p.text.trim();
+      const canPublish = isToday && hasText && !p.published;
+      return `<div class="border rounded-xl p-4 ${p.published?'border-emerald-400 bg-emerald-50/40':''} fade-in">
+        <div class="flex flex-wrap items-center gap-2 mb-2">
+          <span class="text-xs font-bold bg-blue-100 text-blue-700 px-2 py-1 rounded">#${idx+1}</span>
+          <input type="date" value="${p.date}" ${p.published?'disabled':''} onchange="App.editPost('${p.id}','date',this.value)" class="border rounded px-2 py-1 text-sm">
+          <input type="time" value="${p.time||'10:00'}" ${p.published?'disabled':''} onchange="App.editPost('${p.id}','time',this.value)" class="border rounded px-2 py-1 text-sm">
+          ${isToday?'<span class="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded">сегодня</span>':''}
+          ${p.customPromptSnapshot?'<span class="text-xs bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded" title="Пост использует свой промпт">🤖 свой промпт</span>':''}
+          ${p.needsRewrite?'<span class="text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded">✍ требуется переписать</span>':''}
+          ${p.analyticsRef?'<span class="text-xs bg-teal-100 text-teal-700 px-2 py-0.5 rounded" title="Основан на успешном посте">📊 ref</span>':''}
+          ${p.published?'<span class="text-xs bg-emerald-600 text-white px-2 py-0.5 rounded">🔒 опубликовано</span>':''}
+          <span class="flex-1"></span>
+          <button title="Дублировать (+1 день)" ${p.published?'disabled':''} onclick="App.duplicatePost('${p.id}')" class="text-sm px-2 py-1 rounded bg-slate-100 hover:bg-slate-200">📑</button>
+          <button title="Удалить" ${p.published?'disabled':''} onclick="App.deletePost('${p.id}')" class="text-sm px-2 py-1 rounded bg-red-50 hover:bg-red-100 text-red-500">✕</button>
+        </div>
+        <div class="grid md:grid-cols-3 gap-2 mb-2">
+          <input value="${esc(p.topic)}" ${p.published?'disabled':''} placeholder="Тема" onchange="App.editPost('${p.id}','topic',this.value)" class="border rounded px-2 py-1 text-sm font-semibold">
+          <select ${p.published?'disabled':''} onchange="App.editPost('${p.id}','format',this.value)" class="border rounded px-2 py-1 text-sm">
+            ${POST_FORMATS.map(f=>`<option ${p.format===f?'selected':''}>${f}</option>`).join('')}
+          </select>
+          <input value="${esc(p.goal)}" ${p.published?'disabled':''} placeholder="Цель" onchange="App.editPost('${p.id}','goal',this.value)" class="border rounded px-2 py-1 text-sm">
+        </div>
+        <textarea rows="3" ${p.published?'disabled':''} placeholder="Текст поста (сгенерируйте или напишите вручную)…" onchange="App.editPost('${p.id}','text',this.value)" class="w-full border rounded-lg px-3 py-2 text-sm mb-2">${esc(p.text)}</textarea>
+        <div class="flex flex-wrap gap-2 items-center text-sm">
+          <button ${p.published?'disabled':''} onclick="App.openPromptForPost('${p.id}')" class="px-3 py-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700">🤖 Промпт${p.customPromptSnapshot?' ✎':''}</button>
+          <button ${p.published?'disabled':''} onclick="App.generatePostText('${p.id}')" class="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold">${hasText?'🔄 Перегенерировать':'🪄 Генерировать'}</button>
+          ${p.needsRewrite?`<button ${p.published?'disabled':''} onclick="App.rewritePost('${p.id}')" class="px-3 py-1.5 rounded-lg bg-orange-500 hover:bg-orange-600 text-white font-semibold">✍ Переписать</button>`:''}
+          <button onclick="App.viewText('${p.id}')" class="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200">👁 Просмотр</button>
+          <button onclick="App.copyText('${p.id}')" class="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200">📋 Копировать</button>
+          <button ${p.published?'disabled':''} onclick="App.toggleNotes('${p.id}')" class="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200">➕ Сведения</button>
+          <span class="flex-1"></span>
+          <button onclick="App.togglePublished('${p.id}')" class="px-3 py-1.5 rounded-lg ${p.published?'bg-emerald-600 text-white':'bg-slate-100 hover:bg-slate-200'}" title="Статус публикации">${p.published?'🔒 Publ.':'○ Publ.'}</button>
+          <button ${canPublish?'':'disabled'} onclick="App.publishPost('${p.id}')" class="px-3 py-1.5 rounded-lg text-white font-semibold ${canPublish?'hover:opacity-90':'bg-slate-300 cursor-not-allowed'}" style="${canPublish?'background:#0077ff':''}" title="${!isToday?'Кнопка активна только для постов на сегодня':!hasText?'Нет текста':'Публикация через VK API'}">📤 Опубликовать</button>
+        </div>
+        <div id="notes-${p.id}" class="hidden mt-2">
+          <textarea rows="2" placeholder="Ваши сведения для учёта при генерации (даты событий, имена, факты)…" onchange="App.editPost('${p.id}','extraNotes',this.value)" class="w-full border rounded-lg px-3 py-2 text-sm">${esc(p.extraNotes)}</textarea>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  function findPost(id){ return state.posts.find(p=>p.id===id); }
+  function editPost(id, field, value) {
+    const p = findPost(id); if (!p || p.published) return;
+    p[field] = value;
+    if (field==='text') p.needsRewrite = false;
+    markDirty();
+    if (field==='date'||field==='time'){ state.posts.sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time)); renderPosts(); }
+  }
+  function deletePost(id) {
+    if (!confirm('Удалить пост из плана?')) return;
+    state.posts = state.posts.filter(p=>p.id!==id);
+    markDirty(); renderPosts();
+  }
+  function toggleNotes(id){ $('notes-'+id).classList.toggle('hidden'); }
+  function viewText(id) {
+    const p=findPost(id);
+    $('modalTitle').textContent = 'Текст поста: '+p.topic;
+    $('modalBody').textContent = p.text || '(текст не сгенерирован)';
+    $('modalText').classList.remove('hidden');
+  }
+  function copyText(id){ navigator.clipboard.writeText(findPost(id).text).then(()=>toast('Текст скопирован')); }
+  function copyModalText(){ navigator.clipboard.writeText($('modalBody').textContent).then(()=>toast('Текст скопирован')); }
+  function closeModals(){ ['modalText','modalPrompt','modalLib'].forEach(m=>$(m).classList.add('hidden')); }
+
+  function duplicatePost(id) {
+    const p = findPost(id);
+    const copy = makePost({ ...p, id: uuid(), date: addDays(p.date,1), text:p.text, published:false,
+      needsRewrite:true, originalText:p.text });
+    state.posts.push(copy);
+    state.posts.sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time));
+    markDirty(); renderPosts();
+    toast('Дубликат создан (+1 день). Нажмите «✍ Переписать» для уникализации текста.');
+  }
+
+  // ---------- Генерация текста поста ----------
+  async function generatePostText(id, {fromModal=false}={}) {
+    const p = findPost(id); if (!p || p.published) return;
+    const sys = p.customPromptSnapshot ? p.customPromptSnapshot.system : DEFAULT_SYS_PROMPT;
+    const usrBase = p.customPromptSnapshot ? p.customPromptSnapshot.user :
+      `Напиши текст поста для личной страницы ВКонтакте преподавателя вуза.\nТема: ${p.topic}\nФормат: ${p.format}\nЦель: ${p.goal}\nТребования: 700–1500 знаков, дружелюбно-экспертный тон, конкретика, вопрос к аудитории в конце, 3–5 хэштегов. Верни только текст поста, без пояснений.`;
+    const extras = (p.extraNotes?`\nДополнительные сведения от автора (обязательно учти):\n${p.extraNotes}`:'');
+    busy(true, '⏳ Генерация текста поста через DeepSeek…');
+    try {
+      const text = await callDeepSeek(sys, usrBase + extras);
+      p.text = String(text).trim();
+      p.needsRewrite = false;
+      markDirty(); renderPosts();
+      toast('Текст поста сгенерирован ✔');
+    } catch(e){ toast(e.message,false); }
+    finally { busy(false); }
+  }
+  function busy(on, msg) {
+    document.querySelectorAll('#tab-plan button, #genStatus').forEach(el=>{ if(el.tagName==='BUTTON') el.disabled = !!on; });
+    if (on) { switchTab('plan'); genStatus(msg||'⏳ Обработка…'); } else genStatus('');
+  }
+
+  async function rewritePost(id) {
+    const p = findPost(id); if (!p || p.published) return;
+    if (!p.originalText) return toast('Нет оригинального текста для переписывания', false);
+    busy(true, '⏳ Переписывание поста (уникализация текста)…');
+    try {
+      const text = await callDeepSeek(DEFAULT_SYS_PROMPT,
+        `Ниже — текст поста для ВКонтакте преподавателя вуза. Напиши пост НА ТУ ЖЕ тему, но совершенно другим текстом: другие формулировки, другая структура, иные примеры и зачин. Полностью избегай дословных совпадений с оригиналом. Верни только текст нового поста.\n\nОРИГИНАЛ:\n${p.originalText}`);
+      p.text = String(text).trim();
+      p.needsRewrite = false;
+      markDirty(); renderPosts();
+      toast('Пост переписан уникально ✔');
+    } catch(e){ toast(e.message,false); }
+    finally { busy(false); }
+  }
+
+  // ---------- Промпт для поста ----------
+  function openPromptForPost(id) {
+    const p = findPost(id); if (!p) return;
+    modalPostId = id;
+    $('mpSys').value = p.customPromptSnapshot ? p.customPromptSnapshot.system : DEFAULT_SYS_PROMPT;
+    $('mpUser').value = p.customPromptSnapshot ? p.customPromptSnapshot.user : DEFAULT_USER_PROMPT;
+    $('mpSelector').value = p.customPromptId || '';
+    $('modalPrompt').classList.remove('hidden');
+  }
+  function applyModalPrompt() {
+    const id = $('mpSelector').value;
+    const pr = state.customPrompts.find(x=>x.id===id);
+    $('mpSys').value = pr ? pr.system : DEFAULT_SYS_PROMPT;
+    $('mpUser').value = pr ? pr.user : DEFAULT_USER_PROMPT;
+  }
+  function saveModalPrompt() {
+    const p = findPost(modalPostId); if (!p) return;
+    const selId = $('mpSelector').value || null;
+    p.customPromptId = selId;
+    p.customPromptSnapshot = { system: $('mpSys').value, user: $('mpUser').value };
+    markDirty(); renderPosts(); closeModals();
+    toast('Промпт применён к посту (снимок сохранён)');
+  }
+  function saveModalPromptAsNew() {
+    const name = prompt('Имя нового промпта:');
+    if (!name) return;
+    state.customPrompts.push({ id:uuid(), name, system:$('mpSys').value, user:$('mpUser').value, createdAt:new Date().toISOString() });
+    markDirty(); renderPrompts(); toast('Промпт «'+name+'» добавлен в библиотеку');
+  }
+  async function generateWithModalPrompt() {
+    saveModalPrompt();
+    closeModals();
+    await generatePostText(modalPostId);
+  }
+
+  // ---------- Публикация статус ----------
+  function togglePublished(id) {
+    const p = findPost(id); if (!p) return;
+    if (p.published) {
+      if (!confirm('Снять блокировку и вернуть пост в работу?')) return;
+      p.published = false;
+    } else {
+      p.published = true;
+    }
+    markDirty(); renderPosts();
+  }
+
+  // ---------- VK API (JSONP) ----------
+  function jsonp(url) {
+    return new Promise((resolve,reject)=>{
+      const cb = 'vkcb_'+Math.random().toString(36).slice(2);
+      const s = document.createElement('script');
+      const timer = setTimeout(()=>{ cleanup(); reject(new Error('VK API: превышено время ожидания ответа')); }, 15000);
+      function cleanup(){ clearTimeout(timer); delete window[cb]; s.remove(); }
+      window[cb] = data => { cleanup(); resolve(data); };
+      s.onerror = ()=>{ cleanup(); reject(new Error('VK API: ошибка загрузки JSONP')); };
+      s.src = url + (url.includes('?')?'&':'?') + 'callback='+cb;
+      document.head.appendChild(s);
+    });
+  }
+  async function vkApi(method, params, opts) {
+    opts = opts || {};
+    // opts.token — явный токен (например, сервисный ключ); иначе пользовательский
+    const token = (opts.token && opts.token.trim()) || vkToken();
+    if (!token) throw new Error('Не задан токен VK API. Пользовательский — на vkhost.github.io (галочка «Стена»), сервисный — на dev.vk.com. Укажите в ⚙ Настройках.');
+    const qs = new URLSearchParams({ ...params, access_token: token, v: '5.199' });
+    const data = await jsonp('https://api.vk.com/method/'+method+'?'+qs.toString());
+    if (data.error) throw new Error('VK API ошибка '+data.error.error_code+': '+data.error.error_msg);
+    return data.response;
+  }
+  function parseWallOwner(link) {
+    const m = (link||'').match(/vk\.com\/(?:id(\d+)|wall(\d+)|club(\d+)|group\/([\w.]+)|([\w.]+))/);
+    if (!m) return null;
+    if (m[1]) return {type:'user', id:+m[1]};
+    if (m[2]) return {type:'wall', id:+m[2]};
+    if (m[3]) return {type:'group', id:+m[3]};
+    const sn = m[4]||m[5];
+    if (!sn || ['feed','search','videos','photos','music','app','im','news','events','groups','public','catalog'].includes(sn)) return null;
+    return {type:'screen', name:sn};
+  }
+  function normalizeDomain(v) {
+    // Принимает «inpitsstu», «-12345678», «vk.com/inpitsstu», полную URL — как в рабочем парсере
+    let s = (v||'').trim().replace(/^@+/,'');
+    s = s.replace(/^https?:\/\/(www\.)?(m\.)?vk\.com\/?/i,'').replace(/\/+$/,'');
+    return s;
+  }
+  async function resolveOwnerId() {
+    // Сначала пробуем поле «Сообщество или ID» (inpitsstu / -12345678) — как в парсере через сервисный ключ
+    const dom = normalizeDomain(vkDomain());
+    if (dom) {
+      if (/^-?\d+$/.test(dom)) return {id:+dom, domain:null};
+      return {id:null, domain:dom};
+    }
+    // Затем ссылка на стену: извлекаем домен/имя из URL и используем wall.get с domain — прямая аналогия с парсером.
+    // Для числовых ссылок (id…, wall…, club…) оставляем прежний путь через parseWallOwner/owner_id.
+    const link = localStorage.getItem('vk_wall')||'';
+    if (/^https?:\/\//i.test(link.trim())) {
+      const ln = normalizeDomain(link);
+      if (ln && !/^(id\d+|wall\d+|club\d+|group\/|-?\d+$)/i.test(ln) && !/^(feed|search|videos|photos|music|app|im|news|events|groups|public|catalog)$/i.test(ln)) {
+        return {id:null, domain:ln};
+      }
+    }
+    const owner = parseWallOwner(link);
+    if (!owner) throw new Error('В ⚙ Настройках укажите ссылку на стену (vk.com/id…, vk.com/wall…, vk.com/имя) либо сообщество/ID.');
+    if (owner.type==='screen') {
+      // Wall.get с domain работает и с сервисным ключом — пробуем сначала его
+      const svcTok = vkServiceToken();
+      if (svcTok) {
+        try {
+          const r = await vkApi('wall.get', { domain: owner.name, count: 1 }, { token: svcTok });
+          if (r && r.items) return { id: null, domain: owner.name };
+        } catch(e){}
+      }
+      // Пробуем разрешить screen name доступным токеном (сервисный или пользовательский)
+      const tok = svcTok || undefined;
+      try { const u = await vkApi('users.get',{ user_ids: owner.name }, {token:tok}); if (u[0]?.id) return {id:u[0].id, domain:null}; } catch(e){}
+      try { const g = await vkApi('groups.getById',{ group_id: owner.name }, {token:tok}); if (g[0]?.id) return {id:-g[0].id, domain:null}; } catch(e){}
+      throw new Error('Не удалось разрешить имя «'+owner.name+'». Используйте числовую ссылку вида vk.com/id123456 или укажите домен в поле «Сообщество или ID».');
+    }
+    if (owner.type==='group') return {id:-owner.id, domain:null};
+    return {id:owner.id, domain:null};
+  }
+  function calcER(l,c,r,v){ return v>0 ? ((l+c+r)/v*100) : (l+c+r); }
+  async function loadWallViaAPI() {
+    anErr('');
+    try {
+      const service = vkServiceToken();
+      const userTok = vkToken();
+      // Приоритет: сервисный ключ для чтения публичных стен (wall.get с domain);
+      // если его нет — пользовательский токен. Публикация — всегда пользовательским.
+      if (!service && !userTok) throw new Error('Не задан ни сервисный ключ, ни токен VK API. Заполните ⚙ Настройки.');
+      const {id, domain} = await resolveOwnerId();
+      // wall.get принимает И domain (прямая аналогия с рабочим парсером), И числовой owner_id.
+      // Числовой ID нужен только для публикации — он разрешается отдельно в publishPost.
+      const params = { count:50 };
+      if (domain) params.domain = domain; else params.owner_id = id;
+      if (!domain && id > 0) { params.filter = 'owner'; params.extended = 0; }
+      let resp, usedService = !!service;
+      try {
+        resp = await vkApi('wall.get', params, service ? {token:service} : {});
+      } catch(e) {
+        // Fallback: если сервисный ключ не подошёл, а есть пользовательский токен — пробуем им
+        if (service && userTok) {
+          resp = await vkApi('wall.get', params, {token:userTok});
+          usedService = false;
+        } else {
+          throw new Error((e.message||'') + '\nЗапрос: wall.get ' + JSON.stringify(params) +
+            '\nПроверьте: ключ скопирован полностью (без пробелов), сообщество открыто, домен/ID указаны верно.');
+        }
+      }
+      // Если wall.get вернул domain-ответ без owner_id — берём из первого поста
+      let ownerId = id;
+      const items0 = resp.items||[];
+      if (!ownerId && items0.length) ownerId = items0[0].owner_id;
+      const items = items0.filter(it=>it.text&&it.text.trim());
+      state.wallPosts = items.map(it=>{
+        const oid = it.owner_id ?? ownerId;
+        return {
+          id: 'wall'+oid+'_'+it.id, date: it.date ? new Date(it.date*1000).toISOString().slice(0,10) : '',
+          url: 'https://vk.com/wall'+oid+'_'+it.id,
+          text: it.text, likes: it.likes?.count||0, comments: it.comments?.count||0,
+          reposts: it.reposts?.count||0, views: it.views?.count||0
+        };
+      });
+      state.wallPosts.forEach(w=>w.er = calcER(w.likes,w.comments,w.reposts,w.views));
+      state.wallLoadedAt = new Date().toISOString();
+      if (!state.wallPosts.length) throw new Error('Стена доступна, но постов с текстом не найдено (возможно, стена закрыта или сообщество не существует).');
+      markDirty(); renderAnalytics();
+      toast('Загружено постов: '+state.wallPosts.length+(usedService?' (сервисный ключ)':' (пользовательский токен)'));
+    } catch(e) {
+      anErr('❌ '+e.message + '\n\nРекомендации:\n• Сервисный ключ: dev.vk.com → настройки приложения → «Сервисный ключ доступа» (работает только для чтения публичных стен)\n• Пользовательский токен: vkhost.github.io → VK Standalone → галочка «Стена» (нужен для публикации)\n• Укажите сообщество (например, inpitsstu) или ID (-12345678) либо ссылку на стену в ⚙ Настройках\n• Страница/сообщество должны быть открытыми\n• Альтернатива: Способ 2 — загрузка сохранённого HTML (Ctrl+S → «Веб-страница полностью»)');
+    }
+  }
+
+  // ---------- Парсинг HTML стены ----------
+  async function loadWallViaHTML(file) {
+    anErr('');
+    if (!file) return;
+    const html = await file.text();
+    let posts = [];
+    // Стратегия 1: JSON из <script>
+    try {
+      const scripts = [...html.matchAll(/<script[^>]*>([\s\S]*?)<\/script>/gi)].map(m=>m[1]);
+      for (const sc of scripts) {
+        const re = /\{"id":(\d+),"date":(\d+),"time":\d+,"owner_id":(-?\d+)[\s\S]*?"text":"((?:[^"\\]|\\.)*)"/g;
+        let m;
+        while ((m = re.exec(sc)) !== null) {
+          posts.push({ id:'wall'+m[3]+'_'+m[1], date:new Date(+m[2]*1000).toISOString().slice(0,10),
+            url:'https://vk.com/wall'+m[3]+'_'+m[1], text: decodeVkJson(m[4]), likes:0, comments:0, reposts:0, views:0 });
+        }
+        if (posts.length) break;
+      }
+    } catch(e){}
+    // Стратегия 2: data-post-id
+    if (!posts.length) {
+      try {
+        const doc = new DOMParser().parseFromString(html,'text/html');
+        doc.querySelectorAll('[data-post-id]').forEach(el=>{
+          const pid = el.getAttribute('data-post-id');
+          const te = el.querySelector('.wall_post_text, .pi_text');
+          if (te && te.textContent.trim()) posts.push({ id:'wall_'+pid, date:'', url:'https://vk.com/wall'+pid, text: te.textContent.trim(), likes:0, comments:0, reposts:0, views:0 });
+        });
+      } catch(e){}
+    }
+    // Стратегия 3: классы постов
+    if (!posts.length) {
+      try {
+        const doc = new DOMParser().parseFromString(html,'text/html');
+        doc.querySelectorAll('.wall_item, .post, .Post, .WallPost').forEach((el,i)=>{
+          const te = el.querySelector('.wall_post_text, .pi_text');
+          if (te && te.textContent.trim().length>20) posts.push({ id:'parsed_'+i, date:'', url:'', text: te.textContent.trim(), likes:0, comments:0, reposts:0, views:0 });
+        });
+      } catch(e){}
+    }
+    // Стратегия 4: regex по тексту постов
+    if (!posts.length) {
+      const re = /class="(?:wall_post_text|pi_text)"[^>]*>([\s\S]*?)<\/div>/g;
+      let m, i=0;
+      while ((m = re.exec(html)) !== null) {
+        const t = m[1].replace(/<br\s*\/?>/gi,'\n').replace(/<[^>]+>/g,'').replace(/&nbsp;/g,' ').replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').trim();
+        if (t.length>20) posts.push({ id:'rx_'+(i++), date:'', url:'', text:t, likes:0, comments:0, reposts:0, views:0 });
+      }
+    }
+    // Извлечение метрик из блоков рядом с текстом
+    posts.forEach(p=>{
+      const idx = html.indexOf(p.text.slice(0,40));
+      if (idx>-1) {
+        const near = html.slice(idx, idx+3000);
+        const nums = [...near.matchAll(/class="[^"]*(like_count|comment_count|share_count|views_count)[^"]*"[^>]*>\s*(?:<[^>]+>\s*)*([\d\skmкKMМ]+)</gi)];
+        nums.forEach(n=>{
+          const v = parseCount(n[2]);
+          if (/like/.test(n[1])) p.likes=v; else if (/comment/.test(n[1])) p.comments=v;
+          else if (/share/.test(n[1])) p.reposts=v; else p.views=v;
+        });
+      }
+    });
+    if (!posts.length) {
+      const markers = {
+        'размер файла': (html.length/1024).toFixed(0)+' KB',
+        'data-post-id': (html.match(/data-post-id/g)||[]).length,
+        'wall_post_text': (html.match(/wall_post_text/g)||[]).length,
+        'pi_text': (html.match(/pi_text/g)||[]).length,
+        'wall_item': (html.match(/wall_item/g)||[]).length,
+        'PostContent': (html.match(/PostContent/g)||[]).length,
+        'маркеры ВК': /vk\.com|vkontakte/.test(html) ? 'есть' : 'нет',
+        '<script> тегов': (html.match(/<script/g)||[]).length
+      };
+      anErr('❌ Посты не найдены. Диагностика: ' + Object.entries(markers).map(([k,v])=>`\n  • ${k}: ${v}`).join('') +
+        '\n\nРекомендации:\n• Сохраняйте страницу как «Веб-страница ПОЛНОСТЬЮ» (не «Только HTML»)\n• Дождитесь полной загрузки ленты перед сохранением (прокрутите вниз)\n• Или используйте Способ 1 — загрузку через VK API с токеном');
+      return;
+    }
+    posts.forEach(p=>p.er = calcER(p.likes,p.comments,p.reposts,p.views));
+    state.wallPosts = posts;
+    state.wallLoadedAt = new Date().toISOString();
+    markDirty(); renderAnalytics();
+    toast('Из HTML загружено постов: '+posts.length + ' (метрики могут быть неполными)');
+  }
+  function parseCount(s){ s=s.replace(/\s/g,'').toLowerCase(); const m=s.match(/^([\d.]+)([kmkм]?)$/); if(!m) return +s||0; let v=parseFloat(m[1]); if(/k|м/.test(m[2])) v*=1000; return Math.round(v); }
+  function decodeVkJson(s){ return JSON.parse('"'+s+'"').replace(/<br\s*\/?>/gi,'\n').replace(/<[^>]+>/g,'').trim(); }
+  function anErr(msg){ const el=$('anError'); el.textContent=msg; el.classList.toggle('hidden', !msg); }
+
+  // ---------- Отображение аналитики ----------
+  function renderAnalytics() {
+    if (!state) return;
+    const sum = $('anSummary'), cont = $('anContent');
+    const posts = state.wallPosts;
+    if (!posts.length) { sum.classList.add('hidden'); cont.innerHTML='<p class="text-slate-400 text-sm py-4 text-center">Данные стены не загружены. Используйте один из двух способов выше.</p>'; return; }
+    sum.classList.remove('hidden');
+    const avg = f => posts.reduce((s,p)=>s+f(p),0)/posts.length;
+    const cards = [
+      ['Средний ER', avg(p=>p.er).toFixed(2)+'%', 'bg-blue-50'],
+      ['Средние лайки', Math.round(avg(p=>p.likes)), 'bg-rose-50'],
+      ['Средние комментарии', Math.round(avg(p=>p.comments)), 'bg-amber-50'],
+      ['Средние просмотры', Math.round(avg(p=>p.views)), 'bg-emerald-50'],
+    ];
+    sum.innerHTML = cards.map(c=>`<div class="${c[2]} rounded-xl p-3 text-center"><div class="text-2xl font-bold">${c[1]}</div><div class="text-xs text-slate-500">${c[0]}</div></div>`).join('');
+    const sorted = [...posts].sort((a,b)=>b.er-a.er);
+    const top5 = sorted.slice(0,5);
+    cont.innerHTML = `
+      <h3 class="font-bold mb-2">🏆 Топ-5 постов по вовлечённости</h3>
+      <div class="space-y-2 mb-4">${top5.map((p,i)=>`<div class="bg-gradient-to-r from-yellow-50 to-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-sm">
+        <b>${i+1}</b> · ER ${p.er.toFixed(2)}% · ${p.date||'—'} ${p.url?`<a href="${p.url}" target="_blank" class="text-blue-600 underline">открыть</a>`:''}
+        <div class="text-slate-600 mt-1">${esc(p.text.slice(0,160))}${p.text.length>160?'…':''}</div>
+        <div class="text-xs text-slate-500 mt-1">👍${p.likes} 💬${p.comments} 🔁${p.reposts} 👁${p.views}</div>
+      </div>`).join('')}</div>
+      <h3 class="font-bold mb-2">📋 Все посты (${posts.length})${state.wallLoadedAt?' · загружено '+new Date(state.wallLoadedAt).toLocaleString('ru'):''}</h3>
+      <div class="overflow-x-auto"><table class="w-full text-xs border-collapse">
+        <thead><tr class="bg-slate-100 text-left">${['Дата','Текст','👍','💬','🔁','👁','ER%'].map(h=>`<th class="p-2 border">${h}</th>`).join('')}</tr></thead>
+        <tbody>${sorted.map(p=>`<tr>
+          <td class="p-2 border whitespace-nowrap">${p.date||'—'}</td>
+          <td class="p-2 border max-w-[300px] truncate">${esc(p.text.slice(0,80))}</td>
+          <td class="p-2 border">${p.likes}</td><td class="p-2 border">${p.comments}</td>
+          <td class="p-2 border">${p.reposts}</td><td class="p-2 border">${p.views}</td>
+          <td class="p-2 border font-semibold">${p.er.toFixed(2)}</td></tr>`).join('')}</tbody>
+      </table></div>`;
+    $('anSrcInfo').textContent = `Загружено постов аналитики: ${posts.length}. План по аналитике будет основан на топ-постах по ER.`;
+  }
+
+  // ---------- Аудит через DeepSeek ----------
+  async function runAudit() {
+    if (!state.wallPosts.length) return toast('Сначала загрузите данные стены', false);
+    const el = $('auditResult');
+    el.classList.remove('hidden');
+    el.innerHTML = '<p class="text-sm text-blue-700 animate-pulse">⏳ DeepSeek анализирует топ-20 постов и формирует отчёт…</p>';
+    const top = [...state.wallPosts].sort((a,b)=>b.er-a.er).slice(0,20);
+    const stats = top.map((p,i)=>`${i+1}. ${fmtDate(p.date)} | ER=${p.er.toFixed(2)}% | 👍${p.likes} 💬${p.comments} 🔁${p.reposts} 👁${p.views} | ${p.text.slice(0,200).replace(/\n/g,' ')}`).join('\n');
+    try {
+      const rep = await callDeepSeek(
+        'Ты — эксперт по личному бренду преподавателей вузов в социальных сетях. Проводи структурный аудит и давай практичные рекомендации. Отвечай строго JSON.',
+        `Проанализируй статистику публикаций стены преподавателя ${state.profile.fullName} (${state.profile.position}) и верни СТРОГО JSON без пояснений вида:
+{"strengths":["..."],"weaknesses":["..."],"strategy":"...","steps":["7 конкретных операционных шагов на ближайший месяц"],"ideas":["5 идей для постов"]}
+Статистика топ-${top.length} постов по вовлечённости:
+${stats}`, {json:true});
+      state.audit = { generatedAt:new Date().toISOString(), strengths:rep.strengths||[], weaknesses:rep.weaknesses||[], strategy:rep.strategy||'', steps:rep.steps||[], ideas:rep.ideas||[] };
+      markDirty(); renderAudit();
+    } catch(e) { el.innerHTML = '<p class="text-sm text-red-600">❌ '+esc(e.message)+'</p>'; }
+  }
+  function renderAudit() {
+    const el = $('auditResult'); if (!el || !state) return;
+    if (!state.audit) return;
+    const a = state.audit;
+    el.classList.remove('hidden');
+    el.innerHTML = `<div class="border rounded-xl overflow-hidden fade-in">
+      <div class="bg-indigo-600 text-white px-4 py-2 font-bold text-sm">🧠 Аудит личного бренда · ${a.generatedAt?new Date(a.generatedAt).toLocaleString('ru'):''}</div>
+      <div class="p-4 space-y-4 text-sm bg-white">
+        ${a.strengths.length?`<div><h4 class="font-bold text-emerald-700 mb-1">✅ Сильные стороны</h4><ul class="list-disc pl-5 space-y-1">${a.strengths.map(s=>'<li>'+esc(s)+'</li>').join('')}</ul></div>`:''}
+        ${a.weaknesses.length?`<div><h4 class="font-bold text-red-700 mb-1">⚠️ Слабые места</h4><ul class="list-disc pl-5 space-y-1">${a.weaknesses.map(s=>'<li>'+esc(s)+'</li>').join('')}</ul></div>`:''}
+        ${a.strategy?`<div><h4 class="font-bold text-blue-700 mb-1">🎯 Контент-стратегия</h4><p>${esc(a.strategy)}</p></div>`:''}
+        ${a.steps.length?`<div><h4 class="font-bold text-purple-700 mb-1">👣 7 шагов на месяц</h4><ol class="list-decimal pl-5 space-y-1">${a.steps.map(s=>'<li>'+esc(s)+'</li>').join('')}</ol></div>`:''}
+        ${a.ideas.length?`<div><h4 class="font-bold text-amber-700 mb-1">💡 5 идей для постов</h4><ul class="list-disc pl-5 space-y-1">${a.ideas.map(s=>'<li>'+esc(s)+'</li>').join('')}</ul></div>`:''}
+      </div></div>`;
+  }
+
+  // ---------- Публикация в VK ----------
+  async function publishPost(id) {
+    const p = findPost(id); if (!p) return;
+    if (p.date !== todayStr()) return toast('Публиковать можно только посты на сегодня', false);
+    if (!p.text.trim()) return toast('Пост не имеет текста', false);
+    try {
+      if (!vkToken()) throw new Error('Для публикации нужен пользовательский токен VK API (сервисный ключ не подходит). Получите его на vkhost.github.io → VK Standalone → галочка «Стена» и укажите в ⚙ Настройках.');
+      const dom = normalizeDomain(vkDomain());
+      let ownerId;
+      if (dom && /^-\d+$/.test(dom)) {
+        // Явно указан числовой ID сообщества (например, -12345678) — публикуем от имени группы
+        ownerId = +dom;
+      } else if (dom && !/^-?\d+$/.test(dom)) {
+        // Указан домен сообщества — разрешаем в числовой ID через groups.getById
+        const g = await vkApi('groups.getById', { group_id: dom });
+        if (!g[0]?.id) throw new Error('Сообщество «'+dom+'» не найдено.');
+        ownerId = -g[0].id;
+      } else {
+        const r = await resolveOwnerId();
+        ownerId = r.id;
+        if (!ownerId && r.domain) {
+          // Ссылка на стену содержит домен (vk.com/inpitsstu) — разрешаем в числовой ID для wall.post
+          try { const g = await vkApi('groups.getById', { group_id: r.domain }); if (g[0]?.id) ownerId = -g[0].id; } catch(e){}
+          if (!ownerId) { try { const u = await vkApi('users.get', { user_ids: r.domain }); if (u[0]?.id) ownerId = u[0].id; } catch(e){} }
+          if (!ownerId) throw new Error('Не удалось получить числовой ID для «'+r.domain+'». Укажите сообщество/ID в ⚙ Настройках.');
+        }
+        if (!ownerId) throw new Error('Не определён владелец стены. Укажите ссылку вида vk.com/id123456 или сообщество/ID в ⚙ Настройках.');
+      }
+      const params = { owner_id: ownerId, message: p.text, from_group: ownerId<0?1:0, anonymous:0 };
+      const pubTime = new Date(p.date+'T'+(p.time||'10:00')+':00');
+      if (pubTime > new Date()) params.publish_date = Math.floor(pubTime.getTime()/1000);
+      const resp = await vkApi('wall.post', params);
+      p.published = true;
+      markDirty(); renderPosts();
+      toast('Пост опубликован ✔' + (params.publish_date?' (отложенно)':''));
+      if (resp.post_id) window.open('https://vk.com/wall'+ownerId+'_'+resp.post_id, '_blank');
+    } catch(e) { toast('Ошибка публикации: '+e.message, false); }
+  }
+  async function publishTodayAll() {
+    const todays = state.posts.filter(p=>p.date===todayStr() && p.text.trim() && !p.published);
+    if (!todays.length) return toast('Нет неопубликованных постов на сегодня', false);
+    if (!confirm('Опубликовать постов на сегодня: '+todays.length+'?')) return;
+    for (const p of todays) await publishPost(p.id);
+  }
+
+  // ---------- Экспорт ----------
+  function exportJSON() {
+    const blob = new Blob([JSON.stringify({profile:state.profile, posts:state.posts}, null, 2)], {type:'application/json'});
+    const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='content-plan.json'; a.click();
+  }
+  function exportCSV() {
+    const head = ['Дата','Время','Тема','Формат','Цель','Текст','Пометка','Статус'];
+    const rows = state.posts.map(p=>[p.date,p.time,p.topic,p.format,p.goal,p.text,p.needsRewrite?'требуется переписать':'',p.published?'опубликовано':'запланировано']);
+    const csv = '\uFEFF' + [head,...rows].map(r=>r.map(c=>'"'+String(c??'').replace(/"/g,'""')+'"').join(';')).join('\r\n');
+    const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'})); a.download='content-plan.csv'; a.click();
+  }
+
+  // ---------- Инициализация ----------
+  function init() {
+    loadSettingsUI();
+    $('planStartDate').value = todayStr();
+    switchSource('document');
+    // напоминание о несохранённых изменениях
+    window.addEventListener('beforeunload', e => { if (dirty && !fileHandle) { e.preventDefault(); } });
+  }
+  document.addEventListener('DOMContentLoaded', init);
+
+  window.App = null; // будет назначено ниже (для доступа из инлайновых обработчиков и тестов)
+  const api = { showWelcome, createProfile, openFile, onOpenXml, saveFile, toggleSettings, saveSettings,
+    switchTab, switchSource, addTopic, removeTopic, onDocLoaded, generateFromDocument, generateFromTopics,
+    generateFromAnalytics, generateFromCustomPrompt, onPromptSelect, loadPromptFromFile, saveCurrentAsPrompt,
+    openPromptModal, saveLibraryPrompt, deletePrompt, renderPosts, editPost, deletePost, duplicatePost,
+    toggleNotes, viewText, copyText, copyModalText, closeModals, openPromptForPost, applyModalPrompt,
+    saveModalPrompt, saveModalPromptAsNew, generateWithModalPrompt, generatePostText, rewritePost,
+    togglePublished, publishPost, publishTodayAll, loadWallViaAPI, loadWallViaHTML, runAudit, normalizeDomain,
+    exportJSON, exportCSV };
+  window.App = api;
+  return api;
+})();
+</script>
+</body>
+</html>
